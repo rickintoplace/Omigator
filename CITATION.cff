@@ -1,0 +1,31 @@
+# CITATION.cff
+# See: https://citation-file-format.github.io/
+
+cff-version: 1.2.0
+message: "If you use Omigator in your research, please cite it using the metadata in this file."
+title: "Omigator: LLM-driven dataset scouting and selection for NCBI GEO"
+type: software
+
+authors:
+  - family-names: "Heilmann"
+    given-names: "Eirik"
+    email: "rickintoplace@proton.me"
+
+repository-code: "https://gitlab.com/rickintoplace/omigator"
+url: "https://gitlab.com/rickintoplace/omigator"
+
+version: "0.1.0"
+
+date-released: "2026-03-13"
+
+license: "MIT"
+
+keywords:
+  - "NCBI GEO"
+  - "GEO"
+  - "bioinformatics"
+  - "dataset discovery"
+  - "dataset selection"
+  - "metadata"
+  - "LLM"
+  - "literature mining"

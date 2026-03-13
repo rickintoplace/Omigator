@@ -165,5 +165,23 @@ Issues and PRs are welcome:
 
 ---
 
+## Acknowledgements & third-party services
+
+### LLM providers
+Omigator can route LLM requests through external providers (user-supplied API keys), including:
+
+- **GWDG Chat AI / SAIA** — Doosthosseini et al. (2025). *SAIA: A Seamless Slurm-Native Solution for HPC-Based Services*. Research Square. https://doi.org/10.21203/rs.3.rs-6648693/v1  
+  (BibTeX: see `CITATION.bib`)
+- **OpenRouter** — https://openrouter.ai (accessed 2025-03-12)
+
+### Data sources
+Omigator retrieves dataset metadata from **NCBI GEO** using **NCBI Entrez E-utilities** and related GEO endpoints.
+Please comply with NCBI usage policies and rate limits.
+
+- NCBI GEO: https://www.ncbi.nlm.nih.gov/geo/
+- NCBI E-utilities: https://www.ncbi.nlm.nih.gov/books/NBK25501/
+
+---
+
 ## Disclaimer
 Omigator provides *recommendations* based on metadata and LLM output. Always verify inclusion/exclusion decisions in the original GEO record and associated publication.
