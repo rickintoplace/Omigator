@@ -51,7 +51,7 @@ export default function App() {
   const [llmStrategy, setLlmStrategy] = useState<LlmStrategy>('saia_then_openrouter');
 
   const [inputMode, setInputMode] = useState<'search' | 'manual'>('search');
-  const [query, setQuery] = useState('breast cancer RNA-seq');
+  const [query, setQuery] = useState('breast cancer RNA-seq tumor normal');
   const [manualInput, setManualInput] = useState('');
   const [maxResults, setMaxResults] = useState(5);
 
@@ -62,10 +62,10 @@ export default function App() {
   const [maxDate, setMaxDate] = useState('');
 
   const [llmPrompt, setLlmPrompt] = useState(
-    'Find datasets that compare tumor vs normal tissue. Exclude single-cell RNA-seq. Prefer large cohorts.'
+    'Find bulk RNA-seq datasets that directly compare primary tumor vs matched normal tissue in humans. Exclude single-cell and cell line-only studies. Prefer larger cohorts and clear case/control design.'
   );
   const [expectedTags, setExpectedTags] = useState(
-    'bulk_rnaseq, blood, tumor_normal, longitudinal, drug_response'
+    'bulk_rnaseq, tumor_normal, matched_pairs, cohort, clinical'
   );
 
   const [isEvalMode, setIsEvalMode] = useState(false);
@@ -551,7 +551,7 @@ export default function App() {
 
         <div className="p-6 brutal-border-t bg-[var(--color-paper)]">
           {isRunning ? (
-            <button className="brutal-button w-full py-4 text-lg gap-2 bg-red-500 text-white hover:bg-red-600 border-red-900" onClick={handleStop}>
+            <button className="brutal-button w-full py-4 text-lg gap-2 bg-red-500 hover:bg-red-600 border-red-900" onClick={handleStop}>
               <Square className="w-6 h-6 fill-current" /> Stop Run
             </button>
           ) : (
