@@ -1,0 +1,6 @@
+{
+  "functions": {
+    "api/llm/chat.ts": { "maxDuration": 60 },
+    "api/ncbi.ts": { "maxDuration": 30 }
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "name": "Omigator",
+  "description": "LLM-gestützte Dataset-Suche und -Selektion in NCBI GEO",
+  "requestFramePermissions": []
+}
