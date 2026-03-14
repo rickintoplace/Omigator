@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Search, Filter, Database, Play, Square, Download, AlertCircle,
   CheckCircle2, XCircle, HelpCircle, ChevronRight, ChevronDown,
-  Key, Tag, Terminal, BarChart2
+  Key, Tag, Terminal, BarChart2, Github, ExternalLink, Quote, Copy, X
 } from 'lucide-react';
 
 import omigatorLogo from './assets/omigator-logo.svg';
@@ -43,6 +43,35 @@ interface EvalRun {
   fnIds?: string[];
   tnIds?: string[];
 }
+
+const version = __APP_VERSION__;
+
+// --- Project links ---
+const GITHUB_URL = "https://github.com/rickintoplace/Omigator";
+const ISSUES_URL = "https://github.com/rickintoplace/Omigator/issues";
+const RELEASE_URL = `https://github.com/rickintoplace/Omigator/releases/tag/v${__APP_VERSION__}`;
+
+// TODO: fill once Zenodo is enabled for GitHub releases:
+const DOI_URL: string = ""; // set later, e.g. "https://doi.org/10.5281/zenodo.1234567"
+
+// --- Citation metadata (keep minimal + correct) ---
+const TOOL_TITLE = "Omigator: LLM-driven dataset scouting and selection for NCBI GEO";
+const AUTHORS_APA = "Heilmann, E.";
+const YEAR = "2026";
+
+const bestPersistentUrl = DOI_URL || GITHUB_URL;
+
+const CITATION_APA = `${AUTHORS_APA} (${YEAR}). ${TOOL_TITLE} (Version ${version}) [Computer software]. ${bestPersistentUrl}`;
+const DOI_ID = DOI_URL ? DOI_URL.replace(/^https?:\/\/doi\.org\//, "") : "";
+const CITATION_BIBTEX = `@software{omigator_${YEAR},
+  title        = {${TOOL_TITLE}},
+  author       = {Heilmann, Eirik},
+  year         = {${YEAR}},
+  version      = {${version}},
+  url          = {${GITHUB_URL}}${DOI_ID ? `,\n  doi          = {${DOI_ID}}` : ""}
+}`;
+
+type CiteFormat = 'apa' | 'bibtex' | 'doi' | 'repo';
 
 export default function App() {
   // two keys + strategy
@@ -86,6 +115,10 @@ export default function App() {
   const abortRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  // NEW: cite modal state
+  const [showCite, setShowCite] = useState(false);
+  const [citeFormat, setCiteFormat] = useState<CiteFormat>('apa');
+
   useEffect(() => {
     const saved = localStorage.getItem('geo_scout_eval_history');
     if (saved) {
@@ -99,6 +132,26 @@ export default function App() {
 
   const addLog = (msg: string) => {
     setLogs(prev => [...prev, { time: new Date().toLocaleTimeString(), msg }]);
+  };
+
+  const getCiteText = (): string => {
+    switch (citeFormat) {
+      case 'apa': return CITATION_APA;
+      case 'bibtex': return CITATION_BIBTEX;
+      case 'doi': return DOI_URL || "(No DOI available yet)";
+      case 'repo': return GITHUB_URL;
+      default: return CITATION_APA;
+    }
+  };
+
+  const copyCite = async () => {
+    const txt = getCiteText();
+    try {
+      await navigator.clipboard.writeText(txt);
+      addLog(`Copied ${citeFormat.toUpperCase()} citation to clipboard.`);
+    } catch {
+      addLog("Failed to copy citation (clipboard permissions).");
+    }
   };
 
   useEffect(() => {
@@ -400,14 +453,88 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-[var(--color-paper)]">
+      {/* Cite modal */}
+      {showCite && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onMouseDown={() => setShowCite(false)}>
+          <div className="w-full max-w-2xl brutal-border bg-[var(--color-paper)] brutal-shadow p-4" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-xs font-bold uppercase text-[var(--color-muted)]">Cite Omigator</div>
+                <div className="font-bold">Choose format and copy</div>
+              </div>
+              <button className="brutal-button px-3 py-2 text-sm gap-2" onClick={() => setShowCite(false)}>
+                <X className="w-4 h-4" /> Close
+              </button>
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button className={`brutal-button px-3 py-2 text-sm ${citeFormat === 'apa' ? 'bg-ink text-white' : ''}`} onClick={() => setCiteFormat('apa')}>APA</button>
+              <button className={`brutal-button px-3 py-2 text-sm ${citeFormat === 'bibtex' ? 'bg-ink text-white' : ''}`} onClick={() => setCiteFormat('bibtex')}>BibTeX</button>
+              <button className={`brutal-button px-3 py-2 text-sm ${citeFormat === 'repo' ? 'bg-ink text-white' : ''}`} onClick={() => setCiteFormat('repo')}>Repo URL</button>
+              <button className={`brutal-button px-3 py-2 text-sm ${citeFormat === 'doi' ? 'bg-ink text-white' : ''}`} onClick={() => setCiteFormat('doi')} disabled={!DOI_URL}>
+                DOI
+              </button>
+
+              <button className="brutal-button px-3 py-2 text-sm gap-2 ml-auto" onClick={copyCite}>
+                <Copy className="w-4 h-4" /> Copy
+              </button>
+            </div>
+
+            <textarea
+              className="brutal-input mt-3 font-mono text-xs min-h-[160px]"
+              readOnly
+              value={getCiteText()}
+            />
+
+            <div className="mt-3 text-[10px] text-[var(--color-muted)]">
+              Thank you for citing Omigator!
+            </div>
+          </div>
+        </div>
+      )}
+
       <aside className="w-full md:w-96 brutal-border-r flex flex-col h-screen sticky top-0 bg-[var(--color-surface)] z-10 overflow-y-auto">
         <div className="p-6 brutal-border-b bg-[var(--color-accent)]">
           <div className="logo">
             <img src={omigatorLogo} alt="Omigator Logo" />
           </div>
-          <h1 className="logo-text font-display text-3xl tracking-tighter uppercase leading-none" style={{ textAlign: "center" }}>
+
+          <h1 className="logo-text font-display text-3xl tracking-tighter uppercase leading-none text-center">
             Omigator
           </h1>
+
+          <div className="mt-1 flex items-center justify-center gap-2">
+            <span className="version-text text-sm font-bold uppercase tracking-widest">v{version}</span>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+            <a className="brutal-button px-3 py-2 text-sm gap-2 bg-white/90 hover:bg-white" href={GITHUB_URL} target="_blank" rel="noreferrer" title="GitHub repository">
+              <Github className="w-4 h-4" /> GitHub
+            </a>
+
+            {/* <a className="brutal-button px-3 py-2 text-sm gap-2 bg-white/90 hover:bg-white" href={ISSUES_URL} target="_blank" rel="noreferrer" title="Report issues / request features">
+              <ExternalLink className="w-4 h-4" /> Issues
+            </a>
+
+            <a className="brutal-button px-3 py-2 text-sm gap-2 bg-white/90 hover:bg-white" href={RELEASE_URL} target="_blank" rel="noreferrer" title="Release notes">
+              <ExternalLink className="w-4 h-4" /> Release
+            </a> */}
+
+            {DOI_URL && (
+              <a className="brutal-button px-3 py-2 text-sm gap-2 bg-white/90 hover:bg-white" href={DOI_URL} target="_blank" rel="noreferrer" title="DOI">
+                <ExternalLink className="w-4 h-4" /> DOI
+              </a>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setShowCite(true)}
+              className="brutal-button px-3 py-2 text-sm gap-2 bg-white/90 hover:bg-white"
+              title="Cite Omigator"
+            >
+              <Quote className="w-4 h-4" /> Cite
+            </button>
+          </div>
         </div>
 
         <div className="p-6 flex-1 space-y-8">
@@ -420,13 +547,11 @@ export default function App() {
             <div className="space-y-2">
               <label className="block text-xs font-bold uppercase">SAIA API Key (GWDG)</label>
               <input type="password" className="brutal-input" value={saiaKey} onChange={e => setSaiaKey(e.target.value)} placeholder="Bearer ..." />
-              <p className="text-[10px] text-[var(--color-muted)]">Optional</p>
             </div>
 
             <div className="space-y-2">
               <label className="block text-xs font-bold uppercase">OpenRouter API Key</label>
               <input type="password" className="brutal-input" value={openRouterKey} onChange={e => setOpenRouterKey(e.target.value)} placeholder="sk-or-v1-..." />
-              <p className="text-[10px] text-[var(--color-muted)]">Optional</p>
             </div>
 
             <div className="space-y-2">
@@ -449,13 +574,13 @@ export default function App() {
 
             <div className="flex gap-2 mb-2">
               <button
-                className={`flex-1 py-1 text-xs font-bold uppercase brutal-border ${inputMode === 'search' ? 'bg-ink text-[var(--color-paper)]' : 'bg-[var(--color-paper)]'}`}
+                className={`flex-1 py-1 text-xs font-bold uppercase brutal-border ${inputMode === 'search' ? 'bg-ink text-white' : 'bg-[var(--color-paper)]'}`}
                 onClick={() => setInputMode('search')}
               >
                 NCBI Search
               </button>
               <button
-                className={`flex-1 py-1 text-xs font-bold uppercase brutal-border ${inputMode === 'manual' ? 'bg-ink text-[var(--color-paper)]' : 'bg-[var(--color-paper)]'}`}
+                className={`flex-1 py-1 text-xs font-bold uppercase brutal-border ${inputMode === 'manual' ? 'bg-ink text-white' : 'bg-[var(--color-paper)]'}`}
                 onClick={() => setInputMode('manual')}
               >
                 Manual GSEs
@@ -466,7 +591,12 @@ export default function App() {
               <>
                 <div className="space-y-2">
                   <label className="block text-xs font-bold uppercase">Search Query</label>
-                  <input type="text" className="brutal-input" value={query} onChange={e => setQuery(e.target.value)} placeholder="e.g. breast cancer RNA-seq" />
+                  <textarea
+                    className="brutal-input min-h-[44px] resize-y"
+                    value={query}
+                    onChange={e => setQuery(e.target.value)}
+                    placeholder="e.g. breast cancer RNA-seq"
+                  />
                 </div>
                 <div className="space-y-2">
                   <label className="block text-xs font-bold uppercase">Max Results</label>
@@ -521,7 +651,11 @@ export default function App() {
             </div>
             <div className="space-y-2">
               <label className="block text-xs font-bold uppercase">Expected Tags (Comma-separated)</label>
-              <input type="text" className="brutal-input" value={expectedTags} onChange={e => setExpectedTags(e.target.value)} />
+              <textarea
+                className="brutal-input min-h-[44px] resize-y"
+                value={expectedTags}
+                onChange={e => setExpectedTags(e.target.value)}
+              />
             </div>
           </section>
 
@@ -549,9 +683,9 @@ export default function App() {
           </section>
         </div>
 
-        <div className="p-6 brutal-border-t bg-[var(--color-paper)]">
+        <div className="p-6 brutal-border-t bg-[var(--color-paper)]" style={{ position: "sticky", bottom: 0 }}>
           {isRunning ? (
-            <button className="brutal-button w-full py-4 text-lg gap-2 bg-red-500 hover:bg-red-600 border-red-900" onClick={handleStop}>
+            <button className="brutal-button w-full py-4 text-lg gap-2 bg-red-500 hover:bg-red-600 border-red-900 text-white" onClick={handleStop}>
               <Square className="w-6 h-6 fill-current" /> Stop Run
             </button>
           ) : (
@@ -583,7 +717,7 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2">
-            <button className={`brutal-button px-4 py-2 text-sm gap-2 ${showLogs ? 'bg-ink text-[var(--color-paper)]' : ''}`} onClick={() => setShowLogs(!showLogs)}>
+            <button className={`brutal-button px-4 py-2 text-sm gap-2 ${showLogs ? 'bg-ink text-white' : ''}`} onClick={() => setShowLogs(!showLogs)}>
               <Terminal className="w-4 h-4" /> Logs
             </button>
             <button className="brutal-button px-4 py-2 text-sm gap-2" onClick={exportCsv} disabled={results.length === 0}>
@@ -596,13 +730,13 @@ export default function App() {
         <div className="flex gap-4 p-4 brutal-border-b bg-[var(--color-surface)] z-10">
           <button
             onClick={() => setActiveTab('scout')}
-            className={`text-sm font-bold uppercase px-4 py-2 brutal-border transition-colors ${activeTab === 'scout' ? 'bg-ink text-[var(--color-paper)]' : 'bg-[var(--color-paper)] hover:bg-[var(--color-accent)] hover:text-white'}`}
+            className={`text-sm font-bold uppercase px-4 py-2 brutal-border transition-colors ${activeTab === 'scout' ? 'bg-ink text-white' : 'bg-[var(--color-paper)] hover:bg-[var(--color-accent)] hover:text-white'}`}
           >
             Scout Results
           </button>
           <button
             onClick={() => setActiveTab('eval')}
-            className={`text-sm font-bold uppercase px-4 py-2 brutal-border transition-colors ${activeTab === 'eval' ? 'bg-ink text-[var(--color-paper)]' : 'bg-[var(--color-paper)] hover:bg-[var(--color-accent)] hover:text-white'}`}
+            className={`text-sm font-bold uppercase px-4 py-2 brutal-border transition-colors ${activeTab === 'eval' ? 'bg-ink text-white' : 'bg-[var(--color-paper)] hover:bg-[var(--color-accent)] hover:text-white'}`}
           >
             Evaluation History
           </button>
@@ -631,8 +765,8 @@ export default function App() {
                         onClick={() => toggleTagFilter(tag)}
                         className={`px-2 py-1 text-xs font-bold border-2 border-[var(--color-ink)] transition-colors whitespace-nowrap ${
                           selectedTags.has(tag)
-                            ? 'bg-ink text-[var(--color-paper)]'
-                            : 'bg-[var(--color-surface)] hover:bg-[var(--color-accent)] hover:text-[var(--color-paper)]'
+                            ? 'bg-ink text-white'
+                            : 'bg-[var(--color-surface)] hover:bg-[var(--color-accent)] hover:text-white'
                         }`}
                       >
                         #{tag}
@@ -745,7 +879,7 @@ export default function App() {
                                 {res.llmTags && res.llmTags.length > 0 && (
                                   <div className="mt-4 flex flex-wrap gap-2">
                                     {res.llmTags.map(tag => (
-                                      <span key={tag} className="bg-ink text-[var(--color-paper)] px-2 py-1 text-xs font-bold">
+                                      <span key={tag} className="bg-ink text-white px-2 py-1 text-xs font-bold">
                                         #{tag}
                                       </span>
                                     ))}
@@ -787,6 +921,7 @@ export default function App() {
                       <strong>Note on Gold Standard:</strong> Since the gold standard typically only contains positive examples, any evaluated dataset <em>not</em> in the gold standard is assumed to be a Negative. This means <strong>False Positives</strong> might contain valid datasets that were simply not labelled in your gold standard.
                     </div>
                   </div>
+
                   {evalHistory.map(run => (
                     <div key={run.id} className="brutal-border bg-[var(--color-paper)] p-4">
                       <div className="flex justify-between items-start mb-4">
@@ -862,7 +997,7 @@ export default function App() {
         </div>
 
         {showLogs && (
-          <div className="h-64 brutal-border-t bg-ink text-[var(--color-paper)] p-4 overflow-y-auto font-mono text-xs flex-shrink-0 z-20">
+          <div className="h-64 brutal-border-t bg-ink text-white p-4 overflow-y-auto font-mono text-xs flex-shrink-0 z-20">
             <div className="flex justify-between items-center mb-4 sticky top-0 bg-ink pb-2 brutal-border-b border-[var(--color-muted)]">
               <h3 className="font-bold uppercase flex items-center gap-2">
                 <Terminal className="w-4 h-4" /> System Logs

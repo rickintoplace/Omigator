@@ -6,7 +6,7 @@
   --color-paper: #ffffff;
   --color-accent: #FF5500;
   --color-surface: #f4f4f4;
-  --color-muted: #888888;
+  --color-muted: #535353;
 }
 
 ::selection {
@@ -38,6 +38,13 @@ body {
     /* margin-top: 0.2em; */
     margin-bottom: -0.2em;
     font-size: 4em;
+}
+
+.version-text {
+    margin-top: 0.2em;
+    font-size: 0.8em;
+    display: flex;
+    justify-content: center;
 }
 
 .bg-ink {
@@ -78,10 +85,11 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  padding: 4px 8px;
 }
 .brutal-button:hover:not(:disabled) {
   background-color: var(--color-accent);
-  color: var(--color-paper);
+  /* color: var(--color-paper); */
   box-shadow: 4px 4px 0px 0px var(--color-ink);
   transform: translate(-2px, -2px);
 }
