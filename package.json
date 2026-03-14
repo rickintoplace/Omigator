@@ -1,7 +1,7 @@
 {
   "name": "omigator",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "scripts": {
     "dev": "concurrently -n API,WEB -c green,cyan \"npm:dev:api\" \"npm:dev:web\"",

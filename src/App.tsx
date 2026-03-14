@@ -18,6 +18,8 @@ import {
 
 import { evaluateDataset, LlmStrategy } from './services/llm';
 
+import { ParticleLogo } from './components/ParticleLogo';
+
 type Status = 'idle' | 'searching' | 'fetching_metadata' | 'llm_scoring' | 'done' | 'error';
 
 interface LogEntry {
@@ -600,7 +602,7 @@ export default function App() {
                 </div>
                 <div className="space-y-2">
                   <label className="block text-xs font-bold uppercase">Max Results</label>
-                  <input type="number" className="brutal-input" value={maxResults} onChange={e => setMaxResults(parseInt(e.target.value) || 5)} min={1} max={500} />
+                  <input type="number" className="brutal-input" value={maxResults} onChange={e => setMaxResults(parseInt(e.target.value) || 20)} min={1} max={500} />
                 </div>
               </>
             ) : (
@@ -783,8 +785,18 @@ export default function App() {
 
               <div className="p-6 flex-1">
                 {results.length === 0 && status === 'idle' ? (
-                  <div className="h-full flex flex-col items-center justify-center text-center opacity-50">
-                    <Database className="w-24 h-24 mb-6 stroke-1" />
+                  <div className="h-full flex flex-col items-center justify-center text-center opacity-80">
+                    {/* <Database className="w-24 h-24 mb-6 stroke-1" /> */}
+
+
+                    {/* <div className="logo-wallpaper" style={{ backgroundImage: 'url(/src/assets/logo-wallpaper.webp)' }}>
+                    </div> */}
+
+                    <ParticleLogo 
+                      imageSrc="/src/assets/omigator-logo.png" 
+                      className="logo-wallpaper" 
+                    />
+
                     <h2 className="font-display text-4xl uppercase mb-4">Awaiting Input</h2>
                     <p className="max-w-md">Configure your search parameters in the sidebar and start scouting to retrieve and evaluate NCBI GEO datasets.</p>
                   </div>
