@@ -52,9 +52,7 @@ const version = __APP_VERSION__;
 const GITHUB_URL = "https://github.com/rickintoplace/Omigator";
 const ISSUES_URL = "https://github.com/rickintoplace/Omigator/issues";
 const RELEASE_URL = `https://github.com/rickintoplace/Omigator/releases/tag/v${__APP_VERSION__}`;
-
-// TODO: fill once Zenodo is enabled for GitHub releases:
-const DOI_URL: string = ""; // set later, e.g. "https://doi.org/10.5281/zenodo.1234567"
+const DOI_URL = "https://doi.org/10.5281/zenodo.19020074";
 
 // --- Citation metadata (keep minimal + correct) ---
 const TOOL_TITLE = "Omigator: LLM-driven dataset scouting and selection for NCBI GEO";

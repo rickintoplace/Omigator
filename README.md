@@ -1,9 +1,10 @@
 # Omigator | AI Omics Dataset Gating
-
 ---
 
+[![DOI](https://zenodo.org/badge/1181290758.svg)](https://doi.org/10.5281/zenodo.19020074)
+
 <p align="center">
-  <img src="src/assets/omigator-logo.png" alt="Omigator logo" width="420" />
+  <img src="./src/assets/omigator-logo.png" alt="Omigator logo" width="420" />
 </p>
 
 <p align="center">
@@ -152,7 +153,10 @@ No `.env` keys are required for normal usage.
 ## Citing Omigator
 If you use Omigator in a publication, please cite the Omigator tool paper:
 
-> (TODO: add citation details/DOI once published)
+- Concept DOI (recommended): https://doi.org/10.5281/zenodo.19020074
+- Source code: https://github.com/rickintoplace/Omigator
+
+See `CITATION.cff` for citation metadata.
 
 ---
 
