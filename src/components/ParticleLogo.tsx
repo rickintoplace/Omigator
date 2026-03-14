@@ -18,10 +18,12 @@ export const ParticleLogo: React.FC<ParticleLogoProps> = ({ imageSrc, className 
   const wrapperRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Guard gegen doppelte Initialisierung (React 18 StrictMode dev)
+  // Guard gegen doppelte Initialisierung (React StrictMode dev)
   const instanceIdRef = useRef(0);
 
   useEffect(() => {
+    let alive = true;
+
     const wrapper = wrapperRef.current;
     const canvas = canvasRef.current;
     if (!wrapper || !canvas) return;
@@ -32,8 +34,7 @@ export const ParticleLogo: React.FC<ParticleLogoProps> = ({ imageSrc, className 
     instanceIdRef.current += 1;
     const myInstanceId = instanceIdRef.current;
 
-    const img = new Image();
-    // img.crossOrigin = 'anonymous';
+    const img: HTMLImageElement = new Image();
     img.src = imageSrc;
 
     let particles: Particle[] = [];
@@ -44,7 +45,6 @@ export const ParticleLogo: React.FC<ParticleLogoProps> = ({ imageSrc, className 
     let cssW = 1, cssH = 1;
     let bufW = 1, bufH = 1;
 
-    // Pointer in Device-Pixeln
     const pointer = { x: -1e9, y: -1e9, active: false, radius: 90, strength: 1.0 };
     let pendingPointer: PointerEvent | null = null;
     let pointerRaf = 0;
@@ -66,7 +66,7 @@ export const ParticleLogo: React.FC<ParticleLogoProps> = ({ imageSrc, className 
       // @ts-ignore
       if (typeof ctx.imageSmoothingQuality !== 'undefined') ctx.imageSmoothingQuality = 'high';
 
-      pointer.radius = 90 * dpr; // UX: konstant relativ zur sichtbaren Größe
+      pointer.radius = 90 * dpr;
     };
 
     const computeContainRect = () => {
@@ -80,17 +80,13 @@ export const ParticleLogo: React.FC<ParticleLogoProps> = ({ imageSrc, className 
       return { drawX, drawY, drawW, drawH };
     };
 
-    // Tuning: weniger & größere Partikel (in Device-Pixeln)
     const ALPHA_THRESHOLD = 5;
 
     const buildParticles = () => {
       updateSizes();
       const { drawX, drawY, drawW, drawH } = computeContainRect();
 
-      // Schrittweite auf sichtbare Größe abstimmen (nicht nur DPR)
-      // Ziel: bei ~480x160 grob “weniger Partikel”
-    //   const step = Math.max(5, Math.round(Math.min(bufW, bufH) / 10));
-      const step = 7; // count. 5 = viele, 7 = weniger, 9–11 = deutlich weniger
+      const step = 7;
 
       ctx.clearRect(0, 0, bufW, bufH);
       ctx.drawImage(img, drawX, drawY, drawW, drawH);
@@ -116,7 +112,7 @@ export const ParticleLogo: React.FC<ParticleLogoProps> = ({ imageSrc, className 
             const cx = ix + x;
             const cy = iy + y;
 
-            const size = (1.2 + Math.random() * 1.05) * dpr; // größer
+            const size = (1.2 + Math.random() * 1.05) * dpr;
 
             particles.push({
               x: cx, y: cy,
@@ -139,7 +135,6 @@ export const ParticleLogo: React.FC<ParticleLogoProps> = ({ imageSrc, className 
       const e = pendingPointer;
       pendingPointer = null;
 
-      // CSS->Device-Pixel
       const xCss = e.clientX - rect.left;
       const yCss = e.clientY - rect.top;
       pointer.x = xCss * dpr;
@@ -162,13 +157,12 @@ export const ParticleLogo: React.FC<ParticleLogoProps> = ({ imageSrc, className 
     canvas.addEventListener('pointerleave', onPointerLeave, { passive: true });
 
     const ro = new ResizeObserver(() => {
-      // Nur rebuild, wenn diese Instanz noch “die aktuelle” ist
+      if (!alive) return;
       if (instanceIdRef.current !== myInstanceId) return;
       if (img.complete && img.naturalWidth > 0) buildParticles();
     });
     ro.observe(wrapper);
 
-    // Physik/UX (Device-Pixel skaliert)
     const RETURN_FORCE_BASE = 0.035;
     const RETURN_FORCE_RIGHT_REDUCE = 0.02;
     const DAMPING = 0.88;
@@ -177,10 +171,8 @@ export const ParticleLogo: React.FC<ParticleLogoProps> = ({ imageSrc, className 
     const POINTER_FORCE = 1.6 * dpr;
     const SWIRL = 0.10 * dpr;
 
-    const IDLE_JITTER = 0.10 * dpr; // leichte Bewegung auch ohne Maus
-
     const animate = () => {
-      // Falls StrictMode zweite Instanz läuft: sofort stoppen
+      if (!alive) return;
       if (instanceIdRef.current !== myInstanceId) return;
 
       ctx.clearRect(0, 0, bufW, bufH);
@@ -191,25 +183,16 @@ export const ParticleLogo: React.FC<ParticleLogoProps> = ({ imageSrc, className 
       const r2 = r * r;
 
       for (const p of particles) {
-        // leichte Eigenbewegung
-
-        // 0..1 (links..rechts)
         const x = p.normalizedX;
-
-        // Kurve: links sehr lange fast 0, rechts dann stark ansteigend.
-        // 3..6 ist typisch; höher = “mehr Ruhe links”
         const curve = Math.pow(x, 5);
 
-        // Jitter-Stärke: links fast 0, rechts sehr stark
-        const jitterMin = 0.08 * dpr;        // links
-        const jitterMax = 0.25 * dpr;       // rechts (erhöhe für mehr Chaos)
-
+        const jitterMin = 0.08 * dpr;
+        const jitterMax = 0.25 * dpr;
         const jitter = jitterMin + (jitterMax - jitterMin) * curve;
 
         p.vx += (Math.random() - 0.5) * jitter;
         p.vy += (Math.random() - 0.5) * jitter;
 
-        // Pointer Einfluss
         const dx = p.x - px;
         const dy = p.y - py;
         const dist2 = dx * dx + dy * dy;
@@ -225,7 +208,6 @@ export const ParticleLogo: React.FC<ParticleLogoProps> = ({ imageSrc, className 
           const fx = nx * falloff * POINTER_FORCE * pointer.strength;
           const fy = ny * falloff * POINTER_FORCE * pointer.strength;
 
-          // leichtes “Umfließen”
           const tx = -ny;
           const ty = nx;
 
@@ -233,16 +215,13 @@ export const ParticleLogo: React.FC<ParticleLogoProps> = ({ imageSrc, className 
           p.vy += fy + ty * falloff * SWIRL;
         }
 
-        // Rückkehr zum Ursprung
         const returnForce = RETURN_FORCE_BASE - p.normalizedX * RETURN_FORCE_RIGHT_REDUCE;
         p.vx += (p.ox - p.x) * returnForce;
         p.vy += (p.oy - p.y) * returnForce;
 
-        // Dämpfung
         p.vx *= DAMPING;
         p.vy *= DAMPING;
 
-        // Speed cap
         const sp2 = p.vx * p.vx + p.vy * p.vy;
         const max2 = MAX_SPEED * MAX_SPEED;
         if (sp2 > max2) {
@@ -251,7 +230,6 @@ export const ParticleLogo: React.FC<ParticleLogoProps> = ({ imageSrc, className 
           p.vy = (p.vy / sp) * MAX_SPEED;
         }
 
-        // Integrate
         p.x += p.vx;
         p.y += p.vy;
 
@@ -262,14 +240,40 @@ export const ParticleLogo: React.FC<ParticleLogoProps> = ({ imageSrc, className 
       raf = requestAnimationFrame(animate);
     };
 
-    img.onload = () => {
-      // Falls zwischenzeitlich neue Instanz gestartet wurde
-      if (instanceIdRef.current !== myInstanceId) return;
-      buildParticles();
-      raf = requestAnimationFrame(animate);
+    const waitForImage = async (): Promise<void> => {
+      // Prefer decode() when available
+      const decodeFn = (img as any).decode as undefined | (() => Promise<void>);
+      if (typeof decodeFn === "function") {
+        await decodeFn.call(img);
+        return;
+      }
+
+      if (img.complete && img.naturalWidth > 0) return;
+
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("Image load failed"));
+      });
     };
 
+    const start = async () => {
+      try {
+        await waitForImage();
+
+        if (!alive) return;
+        if (instanceIdRef.current !== myInstanceId) return;
+
+        buildParticles();
+        raf = requestAnimationFrame(animate);
+      } catch {
+        // silent fail (no crash)
+      }
+    };
+
+    start();
+
     return () => {
+      alive = false;
       cancelAnimationFrame(raf);
       if (pointerRaf) cancelAnimationFrame(pointerRaf);
       ro.disconnect();

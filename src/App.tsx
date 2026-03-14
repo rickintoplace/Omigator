@@ -19,6 +19,7 @@ import {
 import { evaluateDataset, LlmStrategy } from './services/llm';
 
 import { ParticleLogo } from './components/ParticleLogo';
+import omigatorLogoPng from "./assets/omigator-logo.png";
 
 type Status = 'idle' | 'searching' | 'fetching_metadata' | 'llm_scoring' | 'done' | 'error';
 
@@ -790,9 +791,9 @@ export default function App() {
                     {/* <div className="logo-wallpaper" style={{ backgroundImage: 'url(/src/assets/logo-wallpaper.webp)' }}>
                     </div> */}
 
-                    <ParticleLogo 
-                      imageSrc="/src/assets/omigator-logo.png" 
-                      className="logo-wallpaper" 
+                    <ParticleLogo
+                      imageSrc={omigatorLogoPng}
+                      className="logo-wallpaper"
                     />
 
                     <h2 className="font-display text-4xl uppercase mb-4">Awaiting Input</h2>
