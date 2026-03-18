@@ -1,5 +1,4 @@
 # Omigator | AI Omics Dataset Gating
----
 
 [![DOI](https://zenodo.org/badge/1181290758.svg)](https://doi.org/10.5281/zenodo.19020074)
 
@@ -58,6 +57,41 @@ You can use either provider alone, or configure fallback:
 ### Privacy note (important)
 - Omigator forwards *dataset metadata text* (title/summary/design/abstract) to the selected LLM provider.
 - If you use Omigator via https://omigator.vercel.app, your API keys are sent per request to the backend. They are **not persisted** by Omigator.
+
+---
+
+## Evaluation (paper based approximation)
+
+I provide an initial *paper-based* (“silver standard”) evaluation using a published hypoxia RNA-seq meta-analysis as an external reference set.
+
+### Task definition
+- **Goal:** identify GEO Series (GSE) suitable for a bulk RNA-seq hypoxia vs. normoxia screening task
+- **NCBI query (GEO/GDS):**  
+  `hypoxia[Description] AND "expression profiling by high throughput sequencing"[DataSet Type]`
+- **Search date alignment:** we restrict `maxDate` to **2021-02-11** (as reported in the reference study).
+- **Hard filters:** `Homo sapiens`, high throughput sequencing, minimum sample count.
+
+### Reference set (“gold positives”)
+The positive reference set was derived from the list of included GEO studies reported in:
+Puente-Santamaria *et al.* (2022) [Biomedicines 10(9):2229](https://doi.org/10.3390/biomedicines10092229).
+I extracted the list of included GSE accessions from the supplementary material of the reference meta-analysis paper and treated these as **positives** (n=46).
+
+> Note: This is a *silver standard* evaluation because the reference paper only provides a positive set. Any retrieved dataset not present in the paper’s included list is treated as negative, which makes decision-level precision a conservative estimate (some “false positives” may be valid hypoxia datasets that were simply not included in the paper).
+
+### Results (Omigator v0.1.1)
+Using SAIA (OpenAI-compatible endpoint) with `temperature=0`, Omigator achieved:
+
+- **Decision-based recall:** **0.98** (43/44 retrieved positives)
+- **Decision-based precision:** **0.42** (silver standard)
+- **Shortlist quality (ranking):**
+  - **Precision@20:** **0.80**
+  - **Precision@50:** **0.60**
+  - **Recall@50:** **0.65**
+
+Interpretation: the majority of reference studies can be recovered within the top-ranked candidates, substantially reducing manual screening effort while maintaining high recall.
+
+### Reproducibility
+I record the exact task configuration (query, filters, prompt, provider settings) in `eval/tasks/hypoxia.json` and keep run logs in `eval/runs/`.
 
 ---
 
@@ -189,3 +223,9 @@ Please comply with NCBI usage policies and rate limits.
 
 ## Disclaimer
 Omigator provides *recommendations* based on metadata and LLM output. Always verify inclusion/exclusion decisions in the original GEO record and associated publication.
+
+## References
+#### Standards used for evaluation
+- Puente-Santamaria, L., Sanchez-Gonzalez, L., Pescador, N., Martinez-Costa, O., Ramos-Ruiz, R., & Del Peso, L. (2022).
+  *Formal Meta-Analysis of Hypoxic Gene Expression Profiles Reveals a Universal Gene Signature*. Biomedicines, 10(9), 2229.
+  https://doi.org/10.3390/biomedicines10092229

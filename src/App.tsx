@@ -74,6 +74,27 @@ const CITATION_BIBTEX = `@software{omigator_${YEAR},
 
 type CiteFormat = 'apa' | 'bibtex' | 'doi' | 'repo';
 
+  async function runWithConcurrency<T, R>(
+    items: T[],
+    concurrency: number,
+    worker: (item: T, idx: number) => Promise<R>
+  ): Promise<R[]> {
+    const results: R[] = new Array(items.length) as any;
+    let nextIndex = 0;
+
+    async function runner() {
+      while (true) {
+        const i = nextIndex++;
+        if (i >= items.length) return;
+        results[i] = await worker(items[i], i);
+      }
+    }
+
+    const workers = Array.from({ length: Math.max(1, concurrency) }, () => runner());
+    await Promise.all(workers);
+    return results;
+  }
+
 export default function App() {
   // two keys + strategy
   const [saiaKey, setSaiaKey] = useState('');
@@ -121,7 +142,7 @@ export default function App() {
   const [citeFormat, setCiteFormat] = useState<CiteFormat>('apa');
 
   useEffect(() => {
-    const saved = localStorage.getItem('geo_scout_eval_history');
+    const saved = localStorage.getItem('omigator_eval_history');
     if (saved) {
       try {
         setEvalHistory(JSON.parse(saved));
@@ -184,7 +205,7 @@ export default function App() {
   const clearEvalHistory = () => {
     if (window.confirm("Are you sure you want to clear the evaluation history?")) {
       setEvalHistory([]);
-      localStorage.removeItem('geo_scout_eval_history');
+      localStorage.removeItem('omigator_eval_history');
     }
   };
 
@@ -274,50 +295,45 @@ export default function App() {
 
       if (abortRef.current) throw new Error('Aborted by user');
 
-      // Fetch PubMed abstracts & Overall Design
-      setProgressMsg(`Fetching extra context (Abstracts & Overall Design) for ${datasets.length} datasets...`);
-      addLog(`Fetching extra context for the ${datasets.length} remaining datasets...`);
-      for (let i = 0; i < datasets.length; i++) {
-        if (abortRef.current) throw new Error('Aborted by user');
-
-        setProgressMsg(`Fetching context ${i + 1} of ${datasets.length} (${datasets[i].gseId})...`);
-
-        const { overallDesign, primaryPmid } = await fetchGeoDesignAndPrimaryPmid(datasets[i].gseId, 3, signal);
-        datasets[i].overallDesign = overallDesign;
-        await new Promise(r => setTimeout(r, 340));
-
-        if (primaryPmid) {
-          datasets[i].pmid = primaryPmid;
-          datasets[i].paperAbstract = await fetchPubMedAbstract(primaryPmid, 3, signal);
-          await new Promise(r => setTimeout(r, 340));
-        } else {
-          datasets[i].pmid = undefined;
-          datasets[i].paperAbstract = undefined;
-          addLog(`Dataset ${datasets[i].gseId} has no PRIMARY PMID in GEO (!Series_pubmed_id). Skipping abstract fetch.`);
-        }
-      }
-      addLog(`Finished fetching extra context.`);
-
-      if (abortRef.current) throw new Error('Aborted by user');
-
       setResults(datasets);
       setStatus('llm_scoring');
 
-      addLog(`Starting LLM evaluation for ${datasets.length} datasets ...`);
+      addLog(`Starting context fetch + LLM pipeline for ${datasets.length} datasets ...`);
 
       if (!saiaKey.trim() && !openRouterKey.trim()) {
         throw new Error("Please enter a SAIA API key and/or an OpenRouter API key.");
       }
 
-      for (let i = 0; i < datasets.length; i++) {
+      const CONCURRENCY = 3; // best UX: 2–4 (NCBI rate limits + provider quotas)
+
+      // process each dataset: context -> LLM
+      const scoredByIndex = await runWithConcurrency(datasets, CONCURRENCY, async (d, i) => {
         if (abortRef.current) throw new Error('Aborted by user');
 
-        setEvaluatingId(datasets[i].gseId);
-        setProgressMsg(`LLM evaluating dataset ${i + 1} of ${datasets.length} (${datasets[i].gseId})...`);
-        addLog(`Evaluating ${datasets[i].gseId}...`);
+        setEvaluatingId(d.gseId);
+        setProgressMsg(`Processing ${i + 1}/${datasets.length}: ${d.gseId} (context → LLM)...`);
+        addLog(`Processing ${d.gseId}: fetching context...`);
 
+        // 1) Fetch Overall Design + PRIMARY PMID (from GEO header)
+        const { overallDesign, primaryPmid } = await fetchGeoDesignAndPrimaryPmid(d.gseId, 3, signal);
+        const withDesign: GeoResult = { ...d, overallDesign };
+
+        // 2) Fetch Abstract ONLY for the PRIMARY dataset paper
+        if (primaryPmid) {
+          withDesign.pmid = primaryPmid;
+          withDesign.paperAbstract = await fetchPubMedAbstract(primaryPmid, 3, signal);
+        } else {
+          withDesign.pmid = undefined;
+          withDesign.paperAbstract = undefined;
+          addLog(`Dataset ${d.gseId} has no PRIMARY PMID in GEO (!Series_pubmed_id). Skipping abstract fetch.`);
+        }
+
+        if (abortRef.current) throw new Error('Aborted by user');
+
+        // 3) LLM evaluation
+        addLog(`Processing ${d.gseId}: LLM evaluating...`);
         const evaluation = await evaluateDataset(
-          datasets[i],
+          withDesign,
           llmPrompt,
           expectedTags,
           { saiaApiKey: saiaKey, openRouterApiKey: openRouterKey },
@@ -326,16 +342,28 @@ export default function App() {
           llmStrategy
         );
 
-        const updatedDataset = { ...datasets[i], ...evaluation };
+        const updated: GeoResult = { ...withDesign, ...evaluation };
 
-        if (evaluation.llmModelUsed) lastModelUsed = evaluation.llmModelUsed;
+        if (evaluation.llmModelUsed) {
+          lastModelUsed = evaluation.llmModelUsed;
+        }
 
-        scoredDatasets.push(updatedDataset);
-        setResults([...scoredDatasets, ...datasets.slice(i + 1)]);
-        addLog(`Result for ${datasets[i].gseId}: Decision=${evaluation.llmDecision}, Score=${evaluation.llmScore}`);
-      }
+        // live update in UI: replace entry in-place
+        setResults(prev => {
+          const copy = [...prev];
+          const idx = copy.findIndex(x => x.gseId === updated.gseId);
+          if (idx >= 0) copy[idx] = updated;
+          return copy;
+        });
+
+        addLog(`Result for ${updated.gseId}: Decision=${updated.llmDecision}, Score=${updated.llmScore}`);
+        return updated;
+      });
 
       setEvaluatingId(null);
+
+      // finalize
+      scoredDatasets = scoredByIndex.filter(Boolean);
 
       setStatus('done');
       setProgressMsg(`Completed evaluation of ${scoredDatasets.length} datasets.`);
@@ -356,10 +384,7 @@ export default function App() {
       if (scoredDatasets.length > 0) {
         addLog(`Sorting results by LLM score...`);
         scoredDatasets.sort((a, b) => (b.llmScore || 0) - (a.llmScore || 0));
-        setResults(prev => {
-          const unscored = prev.slice(scoredDatasets.length);
-          return [...scoredDatasets, ...unscored];
-        });
+        setResults(scoredDatasets);
 
         if (isEvalMode) {
           addLog('Running Self-Evaluation metrics on evaluated datasets...');
@@ -396,7 +421,7 @@ export default function App() {
 
           const newHistory = [newRun, ...evalHistory];
           setEvalHistory(newHistory);
-          localStorage.setItem('geo_scout_eval_history', JSON.stringify(newHistory));
+          localStorage.setItem('omigator_eval_history', JSON.stringify(newHistory));
           addLog(`Eval Metrics: Precision=${(precision*100).toFixed(1)}%, Recall=${(recall*100).toFixed(1)}%`);
         }
       }
@@ -424,7 +449,7 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'geo_scout_results.csv';
+    a.download = 'omigator_results.csv';
     a.click();
     URL.revokeObjectURL(url);
     addLog('Exported results to CSV.');
@@ -686,7 +711,7 @@ export default function App() {
 
         <div className="p-6 brutal-border-t bg-[var(--color-paper)]" style={{ position: "sticky", bottom: 0 }}>
           {isRunning ? (
-            <button className="brutal-button w-full py-4 text-lg gap-2 bg-red-500 hover:bg-red-600 border-red-900 text-white" onClick={handleStop}>
+            <button className="brutal-button w-full py-4 text-lg gap-2 bg-red-500 hover:bg-red-600 border-red-900" onClick={handleStop}>
               <Square className="w-6 h-6 fill-current" /> Stop Run
             </button>
           ) : (

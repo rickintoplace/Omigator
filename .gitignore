@@ -1,8 +1,50 @@
+# --- Node / Vite ---
 node_modules/
-build/
 dist/
-coverage/
-.DS_Store
+dist-server/
+.vite/
+.vite-cache/
 *.log
-.env*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- OS / IDE ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.iml
+
+# --- Env / secrets ---
+.env
+.env.*
 !.env.example
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.eggs/
+.venv/
+venv/
+ENV/
+env/
+pip-wheel-metadata/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Jupyter (optional) ---
+.ipynb_checkpoints/
+
+# --- Evaluation outputs (generated) ---
+eval/fp_list.csv
+eval/fn_list.csv
+fp_list.csv
+fn_list.csv
+*.tmp
+*.bak

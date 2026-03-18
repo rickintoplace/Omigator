@@ -7,9 +7,12 @@
     "dev": "concurrently -n API,WEB -c green,cyan \"npm:dev:api\" \"npm:dev:web\"",
     "dev:web": "vite --port=3000 --host=0.0.0.0",
     "dev:api": "tsx server/dev-server.ts",
+
     "build": "vite build",
     "preview": "vite preview",
-    "start:node": "tsx src/server.ts"
+    "start:node": "tsx src/server.ts",
+
+    "cli:hypoxia": "tsx eval/run_omigator_cli.ts --task eval/tasks/hypoxia.json --out eval/omigator_results.csv"
   },
   "dependencies": {
     "express": "^4.21.2",

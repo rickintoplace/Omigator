@@ -1,8 +1,8 @@
 import { GeoResult } from "./ncbi";
 
 const SAIA_MODELS = [
-  "devstral-2-123b-instruct-2512",
   "glm-4.7",
+  "devstral-2-123b-instruct-2512",
   "qwen3-omni-30b-a3b-instruct",
   "deepseek-r1-distill-llama-70b",
 ];

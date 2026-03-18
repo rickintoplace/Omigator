@@ -1,8 +1,8 @@
 import { GeoResult } from "./ncbi";
 
 const SAIA_MODELS = [
-  "devstral-2-123b-instruct-2512",
   "glm-4.7",
+  "devstral-2-123b-instruct-2512",
   "qwen3-omni-30b-a3b-instruct",
   "deepseek-r1-distill-llama-70b",
 ];
@@ -18,6 +18,64 @@ const OPENROUTER_MODELS = [
 
 type Provider = "saia" | "openrouter";
 
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/**
+ * Provider-specific throttling:
+ * Default: 1 request / 1500ms for SAIA, 1 request / 600ms for OpenRouter.
+ * Override via Vite env:
+ *  - VITE_SAIA_MIN_INTERVAL_MS
+ *  - VITE_OPENROUTER_MIN_INTERVAL_MS
+ */
+const SAIA_MIN_INTERVAL_MS = (() => {
+  const v = (import.meta as any)?.env?.VITE_SAIA_MIN_INTERVAL_MS;
+  const n = v ? Number(v) : NaN;
+  return Number.isFinite(n) && n >= 0 ? n : 1500;
+})();
+
+const OPENROUTER_MIN_INTERVAL_MS = (() => {
+  const v = (import.meta as any)?.env?.VITE_OPENROUTER_MIN_INTERVAL_MS;
+  const n = v ? Number(v) : NaN;
+  return Number.isFinite(n) && n >= 0 ? n : 600;
+})();
+
+const MIN_INTERVAL_BY_PROVIDER: Record<Provider, number> = {
+  saia: SAIA_MIN_INTERVAL_MS,
+  openrouter: OPENROUTER_MIN_INTERVAL_MS,
+};
+
+type ThrottleState = { nextAllowedAt: number; chain: Promise<void> };
+const throttleStates: Record<Provider, ThrottleState> = {
+  saia: { nextAllowedAt: 0, chain: Promise.resolve() },
+  openrouter: { nextAllowedAt: 0, chain: Promise.resolve() },
+};
+
+async function throttle(provider: Provider) {
+  const state = throttleStates[provider];
+  const minInterval = MIN_INTERVAL_BY_PROVIDER[provider];
+
+  state.chain = state.chain.then(async () => {
+    const now = Date.now();
+    const wait = Math.max(0, state.nextAllowedAt - now);
+    if (wait > 0) await sleep(wait);
+    state.nextAllowedAt = Date.now() + minInterval;
+  });
+
+  await state.chain;
+}
+
+class HttpError extends Error {
+  status: number;
+  body: string;
+  constructor(status: number, body: string) {
+    super(`HTTP ${status}`);
+    this.status = status;
+    this.body = body;
+  }
+}
+
 async function callChatViaProxy(
   provider: Provider,
   apiKey: string,
@@ -25,6 +83,9 @@ async function callChatViaProxy(
   signal?: AbortSignal,
   timeoutMs: number = 30000
 ) {
+  // Throttle BEFORE every outbound LLM call (provider-specific)
+  await throttle(provider);
+
   const timeoutController = new AbortController();
   const timeoutId = setTimeout(() => timeoutController.abort(), timeoutMs);
 
@@ -46,16 +107,10 @@ async function callChatViaProxy(
 
     if (!response.ok) {
       const errText = await response.text().catch(() => "");
-      throw new Error(`HTTP ${response.status} from ${provider}: ${errText}`);
+      throw new HttpError(response.status, errText);
     }
 
     return await response.json();
-  } catch (error: any) {
-    if (error?.name === "AbortError") {
-      if (signal?.aborted) throw new Error("Aborted by user");
-      throw new Error(`Provider ${provider} timed out after ${Math.round(timeoutMs / 1000)}s.`);
-    }
-    throw error;
   } finally {
     clearTimeout(timeoutId);
     if (signal) signal.removeEventListener("abort", onAbort);
@@ -93,7 +148,11 @@ export type LlmKeys = {
   openRouterApiKey?: string;
 };
 
-export type LlmStrategy = "saia_only" | "openrouter_only" | "saia_then_openrouter" | "openrouter_then_saia";
+export type LlmStrategy =
+  | "saia_only"
+  | "openrouter_only"
+  | "saia_then_openrouter"
+  | "openrouter_then_saia";
 
 export async function evaluateDataset(
   dataset: GeoResult,
@@ -149,7 +208,7 @@ Return ONLY a valid JSON object (no markdown formatting, no backticks) with this
         ? ["openrouter"]
         : strategy === "openrouter_then_saia"
           ? ["openrouter", "saia"]
-          : ["saia", "openrouter"]; // default
+          : ["saia", "openrouter"];
 
   for (const provider of providerOrder) {
     const apiKey = provider === "saia" ? saiaKey : orKey;
@@ -197,9 +256,17 @@ Return ONLY a valid JSON object (no markdown formatting, no backticks) with this
           llmModelUsed: `${provider}:${modelUsed}`,
         };
       } catch (error: any) {
-        if (error?.message === "Aborted by user") throw error;
+        // Backoff on rate limit, otherwise model fallback will cause bursts.
+        if (error instanceof HttpError && error.status === 429) {
+          onLog?.(`${provider.toUpperCase()} rate-limited (HTTP 429). Backing off 15s...`);
+          await sleep(15000);
+        }
+
         lastError = error instanceof Error ? error : new Error(String(error));
-        onLog?.(`${provider.toUpperCase()} model ${model} failed: ${lastError.message}`);
+        const detail =
+          error instanceof HttpError ? `${error.message} ${error.body}` : lastError.message;
+
+        onLog?.(`${provider.toUpperCase()} model ${model} failed: ${detail}`);
       }
     }
   }
