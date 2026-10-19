@@ -1,0 +1,62 @@
+{
+  "name": "hypoxia-paper-criteria",
+  "description": "Same search and gold as hypoxia.json, but with the inclusion/exclusion criteria stated in the methods of Puente-Santamaria et al. (2022), Biomedicines 10(9):2229, section 2.2 (fixed before scoring).",
+  "protocol": {
+    "intent": "Bulk RNA-seq datasets of human cells cultured in vitro that compare hypoxia (reduced oxygen) with normoxia, for a meta-analysis.",
+    "query": "hypoxia[Description] AND \"expression profiling by high throughput sequencing\"[DataSet Type]",
+    "filters": {
+      "organism": "Homo sapiens",
+      "assay": "high throughput sequencing",
+      "minSamples": 4,
+      "maxDate": "2021-02-11"
+    },
+    "criteria": [
+      {
+        "id": "bulk_rnaseq",
+        "kind": "require",
+        "text": "The dataset contains bulk RNA-seq expression profiling (not only single-cell RNA-seq, not only ChIP/ATAC/other non-expression assays)."
+      },
+      {
+        "id": "human_in_vitro",
+        "kind": "require",
+        "text": "The dataset includes human cells cultured in vitro (cell lines or primary cells)."
+      },
+      {
+        "id": "hypoxia_low_o2",
+        "kind": "require",
+        "text": "Cells were exposed to hypoxia or anoxia by reduced oxygen tension (not only chemical hypoxia mimetics such as DMOG, CoCl2 or FG-4592, and not only intermittent/cyclic hypoxia)."
+      },
+      {
+        "id": "normoxia_control",
+        "kind": "require",
+        "text": "The design includes a normoxia or baseline-oxygen control condition to compare against hypoxia."
+      },
+      {
+        "id": "replicates",
+        "kind": "require",
+        "text": "The hypoxia condition and its normoxia control each have at least two biological replicates."
+      },
+      {
+        "id": "exposure_48h",
+        "kind": "require",
+        "text": "Gene expression was measured after a hypoxia exposure of 48 hours or less (at least one such time point)."
+      },
+      {
+        "id": "steady_state_rna",
+        "kind": "require",
+        "text": "Expression was measured as steady-state total or poly(A) RNA levels (not only nascent RNA, polysome/translation fractions, RNA immunoprecipitation or small-RNA sequencing)."
+      }
+    ]
+  },
+  "input": {
+    "mode": "search",
+    "retmax": 400
+  },
+  "scorer": {
+    "kind": "decisions",
+    "endpoint": "openrouter",
+    "model": "perplexity/pplx-decider-v1.2"
+  },
+  "gold": "eval/hypoxia_gold.txt",
+  "concurrency": 6
+}

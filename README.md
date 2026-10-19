@@ -1,4 +1,4 @@
-# Omigator | AI Omics Dataset Gating
+# Omigator | Find GEO datasets that actually fit
 
 [![DOI](https://zenodo.org/badge/1181290758.svg)](https://doi.org/10.5281/zenodo.19020074)
 
@@ -7,225 +7,131 @@
 </p>
 
 <p align="center">
-  <strong>Stop drowning in GEO results. Actually find relevant data.</strong><br/>
-  Built for researchers. Friendly for non-technical users. Hackable for developers.
+  <strong>From one sentence to a ranked, evidence-backed shortlist of NCBI GEO datasets.</strong><br/>
+  Runs in your browser. No account, no server, no data kept.
 </p>
 
----
-
-# What you get
-- A **ranked shortlist** (not just search results)
-- **Include/exclude/unclear** decisions with a **0–100 score**
-- **Transparent reasoning + tags** you can audit and report
-
-## Live Demo (no install)
-For a quick test or if you don't know how you came here:
-
-**https://omigator.vercel.app**
-
-You will need your own API key(s) (see below). Keys are not stored by Omigator.
+**Try it:** **https://omigator.vercel.app** → *Watch a recorded run*. You don't need a key for the demo.
 
 ---
 
-## What Omigator does
-Omigator helps you find and triage GEO datasets efficiently:
+## What it does
 
-- Search NCBI GEO (or paste a list of GSE accessions)
-- Apply hard filters (organism, assay, min samples, date range)
-- Fetch additional context (Overall Design, PubMed abstract if available)
-- Score and label datasets using an LLM:
-  - `include` / `exclude` / `unclear`
-  - numeric score (0–100)
-  - reasoning and tags
-- Export results as CSV
-- Optional self-evaluation vs. a “gold standard” list of GSE IDs
+1. **Describe** what you need in a sentence, in any language. Omigator drafts a GEO search with
+   synonyms and a checklist of criteria. Both stay editable.
+2. **Screen.** Each candidate series is checked against every criterion. The check reads the series
+   text, the **sample annotations** (conditions, controls, replicates, protocols) and the linked abstract.
+3. **Decide.** You get a ranked list with *include / unclear / exclude* and a probability per criterion.
+   On request you also get explanations whose quotes are checked word for word against the record.
+   Export to CSV, or as a run file you can cite in a methods section.
 
----
+Things you can do with the results:
 
-## Supported LLM providers (bring your own key)
-Omigator supports:
-- **SAIA (GWDG chat-ai)** (OpenAI-compatible endpoint)
-   https://docs.hpc.gwdg.de/services/ai-services/saia/index.html
-- **OpenRouter**
+- Mark datasets 👍 or 👎. Omigator then estimates how many relevant datasets the decisions keep,
+  and how far down the list you need to read to keep 90–99% of them.
+- Paste the GSE list of a published meta-analysis to see how well the ranking matches it.
 
-You can use either provider alone, or configure fallback:
-- **SAIA → OpenRouter**
-- **OpenRouter → SAIA**
-- **SAIA only**
-- **OpenRouter only**
+## How it works
 
-### Privacy note (important)
-- Omigator forwards *dataset metadata text* (title/summary/design/abstract) to the selected LLM provider.
-- If you use Omigator via https://omigator.vercel.app, your API keys are sent per request to the backend. They are **not persisted** by Omigator.
+| Step | What happens | Why |
+|---|---|---|
+| Search | NCBI E-utilities (`db=gds`). Filters (organism, dates) are part of the query. | Filtering in the query keeps your result limit for datasets that can match. |
+| Evidence | GEO *family* SOFT file per series, loaded from the GEO FTP site. The per-sample annotations are condensed into a **design table** (e.g. `o2: hypoxic \| siRNA: siARNT (n=3)`), plus protocols and the linked abstract. | Replicates, controls and exposure times are usually only stated per sample. |
+| Screening | A **decision model** (default `perplexity/pplx-decider-v1.2`, open weights). One request per dataset returns a probability for every criterion. | It reads probabilities instead of asking the model to *write* a score. Verbalized 0–100 scores cluster and are poorly calibrated. |
+| Decision | Done in code, not by the model. *Exclude* if a must-criterion clearly fails. *Include* if all must-criteria pass. Otherwise *unclear*. Ranking = sum of log-probabilities. | Auditable, and AND stays AND. |
+| Explanations | On demand, a chat model (default DeepSeek V4.1 Flash) answers each criterion with verbatim quotes. [VeriQuote](https://github.com/rickintoplace/veriquote) checks every quote against the record and flags the ones it cannot find. | No invented justifications. |
+| Calibration | Platt scaling and a split-conformal cut-off, both fitted on your labels. | Model probabilities are not calibrated for your question. |
 
----
+Each run uses **one model**, and the dated snapshot that served it is stored in the run file. If a
+dataset fails, it is reported as failed. Omigator never quietly re-scores it with another model.
 
-## Evaluation (paper based approximation)
+## Benchmark
 
-I provide an initial *paper-based* (“silver standard”) evaluation using a published hypoxia RNA-seq meta-analysis as an external reference set.
+The benchmark uses the search and inclusion criteria of the hypoxia meta-analysis by
+Puente-Santamaria et al. (2022). After filters there are 187 candidates, and 44 of the paper's 46
+datasets are among them. Datasets the paper did not include count as negatives, so precision is a
+lower bound. Full table and caveats: [`eval/RESULTS.md`](eval/RESULTS.md).
 
-### Task definition
-- **Goal:** identify GEO Series (GSE) suitable for a bulk RNA-seq hypoxia vs. normoxia screening task
-- **NCBI query (GEO/GDS):**  
-  `hypoxia[Description] AND "expression profiling by high throughput sequencing"[DataSet Type]`
-- **Search date alignment:** we restrict `maxDate` to **2021-02-11** (as reported in the reference study).
-- **Hard filters:** `Homo sapiens`, high throughput sequencing, minimum sample count.
+| | "include": precision / recall | AUROC | work saved at 95% recall |
+|---|---|---|---|
+| v0.1 (chat model, verbal 0–100 score) | 0.42 / 0.98 | – | – |
+| v0.2, paper's criteria, series text only | 0.75 / **0.48** | 0.92 | 52% |
+| **v0.2, paper's criteria, with sample annotations** | **0.60 / 0.93** | **0.93** | **58%** |
 
-### Reference set (“gold positives”)
-The positive reference set was derived from the list of included GEO studies reported in:
-Puente-Santamaria *et al.* (2022) [Biomedicines 10(9):2229](https://doi.org/10.3390/biomedicines10092229).
-I extracted the list of included GSE accessions from the supplementary material of the reference meta-analysis paper and treated these as **positives** (n=46).
+Most of the remaining "false positives" are eligible. 60 datasets were checked by hand against the
+paper's criteria ([`eval/adjudication/`](eval/adjudication/)). Measured against the reference list plus
+the datasets found eligible, precision at *include* is **0.84** at recall 0.92. Many of the extra
+finds are GEO SuperSeries that bundle a listed dataset, and Omigator now hides these duplicates.
 
-> Note: This is a *silver standard* evaluation because the reference paper only provides a positive set. Any retrieved dataset not present in the paper’s included list is treated as negative, which makes decision-level precision a conservative estimate (some “false positives” may be valid hypoxia datasets that were simply not included in the paper).
+The 187 datasets cost less than one cent to screen and took about a minute.
 
-### Results (Omigator v0.1.1)
-Using SAIA (OpenAI-compatible endpoint) with `temperature=0`, Omigator achieved:
+## Using it
 
-- **Decision-based recall:** **0.98** (43/44 retrieved positives)
-- **Decision-based precision:** **0.42** (silver standard)
-- **Shortlist quality (ranking):**
-  - **Precision@20:** **0.80**
-  - **Precision@50:** **0.60**
-  - **Recall@50:** **0.65**
+**In the browser.** Open the app, add an [OpenRouter key](https://openrouter.ai/keys) under
+*Settings*, and go. A few dollars of credit last for many thousands of datasets.
 
-Interpretation: the majority of reference studies can be recovered within the top-ranked candidates, substantially reducing manual screening effort while maintaining high recall.
-
-### Reproducibility
-I record the exact task configuration (query, filters, prompt, provider settings) in `eval/tasks/hypoxia.json` and keep run logs in `eval/runs/`.
-
----
-
-## Repository layout (dual-mode: Vercel + local Express)
-This repo supports:
-- **Vercel deployment** via serverless functions in `/api`
-- **Local development** using Vite + a lightweight Express dev API
-
-```
-api/                  # Vercel serverless functions (prod)
-server/               # local Express dev API (dev)
-src/                  # React app
-```
-
----
-
-## Quick start (developers)
-
-### Requirements
-- Node.js 18+ (Node 20+ recommended)
-- npm
-
-### Install
-```bash
-npm install
-```
-
-### Run locally (Windows/macOS/Linux)
-Starts:
-- Express API on `http://127.0.0.1:8787`
-- Vite web app on `http://localhost:3000`
+**Self-hosted models.** Under *Settings → Your own endpoint* you can point Omigator at any
+OpenAI-compatible server that returns logprobs: vLLM, llama.cpp, Ollama or an institute gateway.
+The browser calls that server directly, so the server must allow the page's origin:
 
 ```bash
-npm run dev
+vllm serve <model> --allowed-origins '["https://omigator.vercel.app"]'
+OLLAMA_ORIGINS=https://omigator.vercel.app ollama serve
 ```
 
-Open the printed URL (usually `http://localhost:3000`).
+**Hosting the app yourself.** It is a static site: `npm run build`, then serve `dist/` from any web
+server, GitHub Pages or Vercel.
 
----
+### Privacy
 
-## Build (frontend)
-```bash
-npm run build
-```
+- Dataset metadata (series text, sample annotations, abstracts) is sent to the model provider you choose.
+- API keys go only to that provider. They are kept in the browser only if you tick *Remember keys*.
+- GEO records and model answers are cached in your browser (IndexedDB). Clear the cache in *Settings*.
 
-This produces a static build in `dist/`.
+## Command line and evaluation
 
----
-
-## Deploy
-
-### Option A (recommended for non-technical users): Vercel
-The public instance is available at:
-- **https://omigator.vercel.app**
-
-To deploy your own instance:
-1. Import this repository in Vercel
-2. Framework: **Vite**
-3. Build command: `npm run build`
-4. Output directory: `dist`
-5. Ensure `vercel.json` is included (sets function timeouts)
-
-Vercel will automatically deploy:
-- the static frontend
-- the serverless API endpoints in `/api/*`
-
-### Option B: Self-host (advanced / institutional)
-If you want a self-hosted instance (e.g., institute server), you can run a Node server that serves the built UI and provides `/api/*`.
-See `src/server.ts` (Node self-host server). Typical steps:
+The CLI uses the same core as the web app:
 
 ```bash
 npm install
-npm run build
-# run the node server (adjust PORT as needed)
-PORT=8787 npm run start:node
+echo "OPENROUTER_API_KEY=sk-or-..." > .env         # git-ignored
+npm run eval -- --task eval/tasks/hypoxia-paper-criteria.json
+npm run eval -- --task eval/tasks/hypoxia-paper-criteria.json --evidence series   # ablation
+npm run eval -- --task eval/tasks/hypoxia.json --explain 20                        # with explanations
 ```
 
-Then open:
-- `http://<host>:8787`
+A task file holds the protocol (query, filters, criteria), the scorer and, optionally, a reference
+list. Each run writes `manifest.json`, `metrics.json` and `results.csv` to `eval/runs/`. Model calls
+are cached in `eval/.cache/`, so reruns are free. `npm run make-demo` re-records the demo from that cache.
 
----
+## Development
 
-## Configuration & API keys (user UI)
-Omigator is designed so users can paste their key(s) directly in the UI:
-- SAIA API Key
-- OpenRouter API Key
-- Fallback strategy selector
+```bash
+npm install
+npm run dev        # http://localhost:3000
+npm test           # unit tests (parsers, design inference, decisions, metrics, calibration)
+npm run typecheck
+```
 
-No `.env` keys are required for normal usage.
+```
+src/core/   search, GEO records, evidence, models, screening, decisions, calibration, metrics (browser + Node)
+src/ui/     React app
+eval/       CLI, benchmark tasks, results, pilot, demo recorder
+test/       unit tests with real GEO/PubMed fixtures
+```
 
----
+## Citing
 
-## Citing Omigator
-If you use Omigator in a publication, please cite the Omigator tool paper:
+Please cite the Zenodo record: https://doi.org/10.5281/zenodo.19020074 (see `CITATION.cff`).
 
-- Concept DOI (recommended): https://doi.org/10.5281/zenodo.19020074
-- Source code: https://github.com/rickintoplace/Omigator
+## Acknowledgements and references
 
-See `CITATION.cff` for citation metadata.
-
----
-
-## Contributing
-Issues and PRs are welcome:
-- bug reports (include steps + screenshots if possible)
-- new model/provider adapters
-- evaluation datasets and prompts
-- UX improvements for non-technical users
-
----
-
-## Acknowledgements & third-party services
-
-### LLM providers
-Omigator can route LLM requests through external providers (user-supplied API keys), including:
-
-- **GWDG Chat AI / SAIA** — Doosthosseini et al. (2025). *SAIA: A Seamless Slurm-Native Solution for HPC-Based Services*. Research Square. https://doi.org/10.21203/rs.3.rs-6648693/v1  
-  (BibTeX: see `CITATION.bib`)
-- **OpenRouter** — https://openrouter.ai (accessed 2025-03-12)
-
-### Data sources
-Omigator retrieves dataset metadata from **NCBI GEO** using **NCBI Entrez E-utilities** and related GEO endpoints.
-Please comply with NCBI usage policies and rate limits.
-
-- NCBI GEO: https://www.ncbi.nlm.nih.gov/geo/
-- NCBI E-utilities: https://www.ncbi.nlm.nih.gov/books/NBK25501/
-
----
+- Data: [NCBI GEO](https://www.ncbi.nlm.nih.gov/geo/) and [E-utilities](https://www.ncbi.nlm.nih.gov/books/NBK25501/). Please respect NCBI's usage policies.
+- Models through [OpenRouter](https://openrouter.ai). Default decision model: Perplexity pplx-decider (Apache-2.0).
+- Quote checking: [VeriQuote](https://github.com/rickintoplace/veriquote).
+- Benchmark reference: Puente-Santamaria, L., Sanchez-Gonzalez, L., Pescador, N., Martinez-Costa, O., Ramos-Ruiz, R., & Del Peso, L. (2022). *Formal Meta-Analysis of Hypoxic Gene Expression Profiles Reveals a Universal Gene Signature*. Biomedicines, 10(9), 2229. https://doi.org/10.3390/biomedicines10092229
 
 ## Disclaimer
-Omigator provides *recommendations* based on metadata and LLM output. Always verify inclusion/exclusion decisions in the original GEO record and associated publication.
 
-## References
-#### Standards used for evaluation
-- Puente-Santamaria, L., Sanchez-Gonzalez, L., Pescador, N., Martinez-Costa, O., Ramos-Ruiz, R., & Del Peso, L. (2022).
-  *Formal Meta-Analysis of Hypoxic Gene Expression Profiles Reveals a Universal Gene Signature*. Biomedicines, 10(9), 2229.
-  https://doi.org/10.3390/biomedicines10092229
+Omigator makes recommendations from metadata. Check every inclusion decision in the GEO record and
+the associated publication.

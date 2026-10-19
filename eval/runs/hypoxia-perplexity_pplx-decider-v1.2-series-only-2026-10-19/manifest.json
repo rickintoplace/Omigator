@@ -1,0 +1,77 @@
+{
+  "omigator": "0.2.0",
+  "createdAt": "2026-10-19T12:41:48.187Z",
+  "durationMs": 13449,
+  "protocol": {
+    "intent": "Bulk RNA-seq datasets of human cells cultured in vitro that compare hypoxia (reduced oxygen) with normoxia, for a meta-analysis.",
+    "query": "hypoxia[Description] AND \"expression profiling by high throughput sequencing\"[DataSet Type]",
+    "filters": {
+      "organism": "Homo sapiens",
+      "assay": "high throughput sequencing",
+      "minSamples": 4,
+      "maxDate": "2021-02-11"
+    },
+    "criteria": [
+      {
+        "id": "bulk_rnaseq",
+        "kind": "require",
+        "text": "The dataset contains bulk RNA-seq expression profiling (not only single-cell RNA-seq, not only ChIP/ATAC/other non-expression assays)."
+      },
+      {
+        "id": "human_in_vitro",
+        "kind": "require",
+        "text": "The dataset includes human cells cultured in vitro (cell lines or primary cells)."
+      },
+      {
+        "id": "hypoxia_low_o2",
+        "kind": "require",
+        "text": "Cells were exposed to hypoxia or anoxia by reduced oxygen tension (not only chemical hypoxia mimetics such as DMOG, CoCl2 or FG-4592, and not only intermittent/cyclic hypoxia)."
+      },
+      {
+        "id": "normoxia_control",
+        "kind": "require",
+        "text": "The design includes a normoxia or baseline-oxygen control condition to compare against hypoxia."
+      }
+    ]
+  },
+  "input": {
+    "mode": "search",
+    "retmax": 400
+  },
+  "search": {
+    "term": "(hypoxia[Description] AND \"expression profiling by high throughput sequencing\"[DataSet Type]) AND gse[ETYP] AND \"Homo sapiens\"[ORGN] AND (\"1900/01/01\"[PDAT] : \"2021/02/11\"[PDAT])",
+    "count": 198,
+    "retrieved": 198
+  },
+  "removedByFilters": {
+    "organism": 0,
+    "assay": 0,
+    "samples": 11,
+    "date": 0
+  },
+  "scorer": {
+    "id": "decisions:openrouter:perplexity/pplx-decider-v1.2",
+    "model": "perplexity/pplx-decider-v1.2",
+    "snapshots": [
+      "perplexity/pplx-decider-v1.2-20261016"
+    ]
+  },
+  "thresholds": {
+    "meet": 0.5,
+    "fail": 0.2,
+    "preferWeight": 0.1
+  },
+  "counts": {
+    "candidates": 187,
+    "screened": 187,
+    "failed": 0,
+    "include": 95,
+    "unclear": 12,
+    "exclude": 80
+  },
+  "cost": {
+    "screening": 0.0038338600000000006,
+    "explanations": 0
+  },
+  "ncbiApiKey": false
+}

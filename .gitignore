@@ -48,3 +48,9 @@ fp_list.csv
 fn_list.csv
 *.tmp
 *.bak
+# --- Local planning ---
+PLAN.md
+
+# --- Eval cache ---
+eval/.cache/
+eval/runs/**/results.jsonl

@@ -1,29 +1,47 @@
 {
-  "name": "hypoxia_meta_analysis",
-  "query": "hypoxia[Description] AND \"expression profiling by high throughput sequencing\"[DataSet Type]",
-  "maxResults": 400,
-  "maxDate": "2021-02-11",
-
-  "organism": "Homo sapiens",
-  "assay": "high throughput sequencing",
-  "minSamples": 4,
-
-  "llmPrompt": "You are screening GEO Series (GSE) for inclusion in a hypoxia bulk RNA-seq meta-analysis.\n\nPRIMARY GOAL: High recall (do not miss true positives), BUT also produce a USEFUL RANKING by using a wide score range (avoid giving 90-100 to almost everything).\n\nDecision meanings:\n- include = high-confidence match\n- unclear = plausible but missing key metadata; requires manual check\n- exclude = clearly not eligible\n\nINCLUDE only if CLEARLY supported by metadata:\nA) Bulk RNA-seq expression profiling (not scRNA-seq)\nB) Human in vitro cell-based experiment\nC) Hypoxia/anoxia by reduced oxygen tension AND a normoxia/baseline control exists\n\nUNCLEAR if the study looks relevant but ANY of A/B/C is not clearly stated.\n\nEXCLUDE only if clearly true:\n- scRNA-seq\n- non-human only\n- no control/baseline at all\n- chemical mimetic-only hypoxia without reduced oxygen\n- intermittent/cycling hypoxia only\n- clearly not bulk RNA-seq expression profiling\n\nSPECIAL CASE (for recall vs published gold standards):\n- If human samples are present and oxygen conditions are compared, treat as unclear or include (do NOT exclude) even if mixed-species or wording is imperfect.\n\nSTRICT SCORE CALIBRATION (must follow):\n- 95-100: textbook hypoxia vs normoxia bulk RNA-seq, clear in vitro human setup, clear replicates, clear timepoints\n- 80-94: strong match but one minor detail unclear (e.g., replicates not explicit)\n- 60-79: plausible hypoxia RNA-seq but key details missing/ambiguous (this should usually be decision='unclear')\n- 30-59: weak match / likely off-target\n- 0-29: clear exclude\n\nIMPORTANT: Only use tag include_meta_analysis when you are confident it truly fits; otherwise use unclear_* tags.\n\nReturn strict JSON only.",
-  "expectedTags": "bulk_rnaseq, hypoxia, normoxia_control, in_vitro, include_meta_analysis, intervention_allowed, mixed_species, unclear_normoxia, unclear_hypoxia, unclear_in_vitro, unclear_bulk, unclear_species, unclear_timepoint, unclear_replicates, exclude_scRNA, exclude_nonhuman_only, exclude_no_normoxia, exclude_mimetic, exclude_intermittent, exclude_non_rnaseq_assay",
-
-  "strategy": "saia_only",
-  "saiaModels": [
-    "glm-4.7"
-  ],
-  "openRouterModels": [],
-
-  "perModelTimeoutMs": 30000,
-  "ncbiDelayMs": 340,
-
-  "concurrencyContext": 3,
-  "concurrencyLLM": 1,
-
-  "saiaMinIntervalMs": 6000,
-  "openrouterMinIntervalMs": 0,
-  "rateLimitBackoffMs": 60000
+  "name": "hypoxia",
+  "description": "Bulk RNA-seq, human cells in vitro, hypoxia vs normoxia. Gold: included GSEs of Puente-Santamaria et al. (2022) Biomedicines 10(9):2229 (silver standard: positives only).",
+  "protocol": {
+    "intent": "Bulk RNA-seq datasets of human cells cultured in vitro that compare hypoxia (reduced oxygen) with normoxia, for a meta-analysis.",
+    "query": "hypoxia[Description] AND \"expression profiling by high throughput sequencing\"[DataSet Type]",
+    "filters": {
+      "organism": "Homo sapiens",
+      "assay": "high throughput sequencing",
+      "minSamples": 4,
+      "maxDate": "2021-02-11"
+    },
+    "criteria": [
+      {
+        "id": "bulk_rnaseq",
+        "kind": "require",
+        "text": "The dataset contains bulk RNA-seq expression profiling (not only single-cell RNA-seq, not only ChIP/ATAC/other non-expression assays)."
+      },
+      {
+        "id": "human_in_vitro",
+        "kind": "require",
+        "text": "The dataset includes human cells cultured in vitro (cell lines or primary cells)."
+      },
+      {
+        "id": "hypoxia_low_o2",
+        "kind": "require",
+        "text": "Cells were exposed to hypoxia or anoxia by reduced oxygen tension (not only chemical hypoxia mimetics such as DMOG, CoCl2 or FG-4592, and not only intermittent/cyclic hypoxia)."
+      },
+      {
+        "id": "normoxia_control",
+        "kind": "require",
+        "text": "The design includes a normoxia or baseline-oxygen control condition to compare against hypoxia."
+      }
+    ]
+  },
+  "input": {
+    "mode": "search",
+    "retmax": 400
+  },
+  "scorer": {
+    "kind": "decisions",
+    "endpoint": "openrouter",
+    "model": "perplexity/pplx-decider-v1.2"
+  },
+  "gold": "eval/hypoxia_gold.txt",
+  "concurrency": 6
 }
