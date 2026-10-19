@@ -12,3 +12,4 @@ export * from './explain';
 export * from './calibrate';
 export * from './metrics';
 export * from './pipeline';
+export * from './snapshot';

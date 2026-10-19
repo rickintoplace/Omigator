@@ -67,7 +67,7 @@ export interface RunOutput {
   manifest: RunManifest;
 }
 
-const SERIES_CACHE = 'series:v2:';
+export const SERIES_CACHE = 'series:v2:';
 const PAPERS_PER_DATASET = 2;
 
 export function normalizeGseList(text: string): string[] {

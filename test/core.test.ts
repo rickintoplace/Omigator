@@ -184,3 +184,22 @@ describe('metrics and calibration', () => {
     expect(recallEstimate([1, 2, 3, 4], 2.5).recall).toBe(0.5);
   });
 });
+
+describe('share links', () => {
+  it('round-trips a run and keeps the ranking of saturated probabilities', async () => {
+    const { makeSnapshot, encodeSnapshot, decodeSnapshot } = await import('../src/core');
+    const protocol = { intent: 'x', query: 'q', filters: {}, criteria: [{ id: 'a', kind: 'require' as const, text: 'A' }] };
+    const mk = (gse: string, p: number) => ({
+      gse,
+      candidate: { ...candidate, gse },
+      screening: { p: { a: p }, model: 'm-1', cost: 0, ...aggregate(protocol.criteria, { a: p }) },
+    });
+    const results = [mk('GSE1', 0.99999), mk('GSE2', 0.9994), mk('GSE3', 0.2)];
+    const snap = makeSnapshot(results, protocol, { mode: 'search', retmax: 10 }, undefined, { GSE2: true });
+    const decoded = await decodeSnapshot(await encodeSnapshot(snap));
+    expect(decoded.labels).toEqual({ GSE2: 1 });
+    const [l1, l2] = [decoded.items[0][1][0], decoded.items[1][1][0]];
+    expect(l1).toBeGreaterThan(l2);
+    expect(decoded.items[0][2]).toBe(0);
+  });
+});

@@ -1,6 +1,7 @@
-import { ArrowRight, LoaderCircle, Play } from 'lucide-react';
+import { ArrowRight, History, LoaderCircle, Play } from 'lucide-react';
 import { useState } from 'react';
 import { PRESETS, type Protocol } from '../../core';
+import type { SavedRunMeta } from '../idbCache';
 import omigatorLogoPng from '../../assets/omigator-logo.png';
 import { KeyPrompt } from './KeyPrompt';
 import { ParticleLogo } from './ParticleLogo';
@@ -18,6 +19,8 @@ export interface StartScreenProps {
   onManual: () => void;
   onDemo: () => void;
   onOpenSettings: () => void;
+  recent: SavedRunMeta[];
+  onOpenRun: (id: string) => void;
 }
 
 const PLACEHOLDER = 'e.g. Mouse liver RNA-seq after high-fat diet versus chow, at least 3 animals per group';
@@ -92,6 +95,26 @@ export function StartScreen(p: StartScreenProps) {
             ))}
           </div>
         </div>
+
+        {p.recent.length > 0 && (
+          <div className="space-y-2">
+            <div className="text-sm font-semibold flex items-center gap-1.5">
+              <History className="w-4 h-4" /> Your recent runs (saved in this browser)
+            </div>
+            <ul className="card divide-y-2 divide-[var(--color-ink)]">
+              {p.recent.slice(0, 5).map((r) => (
+                <li key={r.id}>
+                  <button className="w-full text-left px-3 py-2 hover:bg-[var(--color-surface)] flex flex-wrap gap-x-3 items-baseline" onClick={() => p.onOpenRun(r.id)}>
+                    <span className="font-medium flex-1 min-w-[12rem] truncate">{r.intent || 'Untitled run'}</span>
+                    <span className="text-xs text-[var(--color-muted)]">
+                      {r.include} include of {r.count} · {new Date(r.createdAt).toLocaleString()}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <div className="card p-4 flex flex-wrap items-center gap-4 dotted-bg">
           <div className="flex-1 min-w-[14rem]">

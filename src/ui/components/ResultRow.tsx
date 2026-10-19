@@ -43,7 +43,11 @@ export function ResultRow(props: ResultRowProps) {
                   })}
                 </span>
               )}
-              {props.calibrated !== undefined && <span className="text-xs text-[var(--color-muted)]">P(relevant) ≈ {pct(props.calibrated)}</span>}
+              {props.calibrated !== undefined && (
+                <span className="text-xs px-1.5 brutal-border-thin" title="Probability that this dataset is relevant to you, fitted to your 👍/👎 marks">
+                  relevant to you: {pct(props.calibrated)}
+                </span>
+              )}
             </span>
             <span className="block text-sm mt-1 line-clamp-2">{c.title}</span>
             <span className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-[var(--color-muted)]">
@@ -65,7 +69,7 @@ export function ResultRow(props: ResultRowProps) {
           <button
             className={`flex-1 px-3 ${props.label === true ? 'bg-[var(--color-accent)]' : 'hover:bg-[var(--color-surface)]'}`}
             onClick={() => props.onLabel(props.label === true ? undefined : true)}
-            title="Relevant (used for calibration and evaluation)"
+            title="Relevant to me. Your marks estimate how many relevant datasets the decisions keep."
             aria-pressed={props.label === true}
           >
             <ThumbsUp className="w-4 h-4" />
@@ -73,7 +77,7 @@ export function ResultRow(props: ResultRowProps) {
           <button
             className={`flex-1 px-3 brutal-border-t ${props.label === false ? 'bg-ink text-white' : 'hover:bg-[var(--color-surface)]'}`}
             onClick={() => props.onLabel(props.label === false ? undefined : false)}
-            title="Not relevant"
+            title="Not relevant to me"
             aria-pressed={props.label === false}
           >
             <ThumbsDown className="w-4 h-4" />

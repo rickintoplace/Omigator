@@ -36,6 +36,9 @@ export interface RunState {
   log: string[];
   /** Set while showing the recorded demo run. */
   demo?: DemoRecording;
+  input?: RunInput;
+  /** Where the results came from: a run in this tab, a saved run, or a shared link. */
+  source?: 'run' | 'saved' | 'shared';
 }
 
 const INITIAL: RunState = { status: 'idle', message: '', total: 0, done: 0, results: [], log: [] };
@@ -59,7 +62,7 @@ export function useRun(appVersion: string) {
       const controller = new AbortController();
       abortRef.current = controller;
       const byGse = new Map<string, DatasetResult>();
-      setState({ ...INITIAL, status: 'running', message: 'Starting…', protocol, scorer });
+      setState({ ...INITIAL, status: 'running', message: 'Starting…', protocol, scorer, input, source: 'run' });
 
       try {
         const out = await run({
@@ -108,6 +111,18 @@ export function useRun(appVersion: string) {
     setState(INITIAL);
   }, []);
 
+  /** Shows results that were saved or shared (no run in progress). */
+  const load = useCallback(
+    (data: { results: DatasetResult[]; protocol: Protocol; input: RunInput; manifest?: RunManifest; message: string; source: 'saved' | 'shared' }) => {
+      abortRef.current?.abort();
+      setState({ ...INITIAL, status: 'done', total: data.results.length, done: data.results.length, ...data });
+    },
+    [],
+  );
+
+  /** Replaces one result in place (e.g. after loading its evidence on demand). */
+  const patch = useCallback((r: DatasetResult) => update(r), []);
+
   /** Replays a recorded run with roughly the pacing of a real one (about 8 s in total). */
   const startDemo = useCallback(async (demo: DemoRecording) => {
     abortRef.current?.abort();
@@ -116,7 +131,7 @@ export function useRun(appVersion: string) {
     const { signal } = controller;
     const pending = demo.results.map((r) => ({ gse: r.gse, candidate: r.candidate }));
     const shown = new Map<string, DatasetResult>(pending.map((r) => [r.gse, r]));
-    setState({ ...INITIAL, status: 'running', demo, protocol: demo.protocol, message: 'Searching GEO… (recorded run)', total: pending.length, results: [] });
+    setState({ ...INITIAL, status: 'running', demo, protocol: demo.protocol, input: { mode: 'search', retmax: demo.retmax }, message: 'Searching GEO… (recorded run)', total: pending.length, results: [] });
     try {
       await sleep(700, signal);
       setState((s) => ({ ...s, message: `Screening ${pending.length} datasets with ${demo.manifest.scorer.model}… (recorded run)`, results: [...shown.values()] }));
@@ -195,7 +210,7 @@ export function useRun(appVersion: string) {
     [state.protocol, state.scorer],
   );
 
-  return { state, busy, start, startDemo, stop, reset, explainMany, retry };
+  return { state, busy, start, startDemo, stop, reset, load, patch, explainMany, retry, cache: cacheRef };
 }
 
 /** Stable pseudo-random order for the demo replay. */

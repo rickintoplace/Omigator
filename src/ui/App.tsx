@@ -1,7 +1,7 @@
-import { Download, ExternalLink, FileJson, LoaderCircle, MessageSquareQuote, Play, Plus, Quote, Settings as SettingsIcon, Square } from 'lucide-react';
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
-import { buildGdsTerm, type DatasetResult, type Decision, draftProtocol, fitPlatt, normalizeGseList, plattProbability, type Protocol } from '../core';
-import omigatorLogo from '../assets/omigator-logo.svg';
+import { Download, ExternalLink, FileJson, Link2, LoaderCircle, MessageSquareQuote, Play, Plus, Quote, Settings as SettingsIcon, Square } from 'lucide-react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { buildGdsTerm, type DatasetResult, type Decision, draftProtocol, fitPlatt, loadDossier, normalizeGseList, plattProbability, type Protocol } from '../core';
+import omigatorLogo from '../assets/omigator-logo.png';
 import { CiteDialog, GITHUB_URL } from './components/CiteDialog';
 import { InsightsView } from './components/InsightsView';
 import { KeyPrompt } from './components/KeyPrompt';
@@ -12,6 +12,8 @@ import { StartScreen } from './components/StartScreen';
 import { DECISION_STYLE, usd } from './components/ui';
 import { loadDemo } from './demo';
 import { exportCsv, exportJson } from './export';
+import { listRuns, type SavedRunMeta } from './idbCache';
+import { fetchRun, newRunId, openShared, shareUrl, storeRun } from './persistence';
 import { chatTarget, isReady, type Keys, load, loadKeys, loadSettings, makeNcbi, makeScorer, save, saveKeys, saveSettings, type Settings } from './settings';
 import { useRun } from './useRun';
 
@@ -45,9 +47,88 @@ export default function App() {
   const [draftError, setDraftError] = useState<string>();
   const [hitCount, setHitCount] = useState<{ count?: number; loading: boolean; error?: string }>({ loading: false });
 
-  const { state, busy, start, startDemo, stop, reset, explainMany, retry } = useRun(VERSION);
+  const { state, busy, start, startDemo, stop, reset, load: loadRun, patch, explainMany, retry, cache } = useRun(VERSION);
   const running = state.status === 'running';
   const demo = state.demo;
+  const [runId, setRunId] = useState<string>();
+  const [recent, setRecent] = useState<SavedRunMeta[]>([]);
+  const [notice, setNotice] = useState<string>();
+  const [labelHintSeen, setLabelHintSeen] = useState(() => load('omigator.labelHint', { seen: false }).seen);
+  const loadingDossiers = useRef(new Set<string>());
+
+  const setHash = (hash: string) => history.replaceState(null, '', hash ? `#${hash}` : `${location.pathname}${location.search}`);
+  const showRun = (data: Parameters<typeof loadRun>[0]) => {
+    setProtocol(data.protocol);
+    setMode(data.input.mode);
+    if (data.input.mode === 'search') setRetmax(data.input.retmax);
+    else setGseText(data.input.gses.join('\n'));
+    setWorkspace(true);
+    setTab('results');
+    setView('all');
+    setExpanded(new Set());
+    loadRun(data);
+  };
+
+  // Open what the URL points to: a shared run (#s=…) or a run saved in this browser (#run=…).
+  useEffect(() => {
+    listRuns().then(setRecent);
+    const params = new URLSearchParams(location.hash.slice(1));
+    const shared = params.get('s');
+    const saved = params.get('run');
+    if (shared) {
+      setWorkspace(true);
+      setNotice('Opening shared run…');
+      openShared(shared, makeNcbi(keys, settings))
+        .then((run) => {
+          setLabels((l) => ({ ...run.labels, ...l }));
+          showRun({ ...run, message: `Shared run from ${run.manifest.createdAt.slice(0, 10)}`, source: 'shared' });
+          setNotice(undefined);
+        })
+        .catch((err) => setNotice(`Could not open this link: ${(err as Error).message}`));
+    } else if (saved) {
+      fetchRun(saved).then((run) => {
+        if (!run) return setHash('');
+        setRunId(saved);
+        showRun({ ...run, message: `Saved run from ${(run.manifest?.createdAt ?? '').slice(0, 10)}`, source: 'saved' });
+      });
+    }
+  }, []);
+
+  // Every finished run is saved in this browser and its address put in the URL, so a reload or a
+  // misclick does not lose it. Explanations added later are saved too.
+  useEffect(() => {
+    if (state.status !== 'done' || demo || !state.protocol || !state.input || !state.results.some((r) => r.screening)) return;
+    if (state.source !== 'run' && state.source !== 'saved') return;
+    const id = runId ?? newRunId();
+    if (!runId) setRunId(id);
+    const timer = setTimeout(() => {
+      storeRun(id, { results: state.results, protocol: state.protocol!, input: state.input!, manifest: state.manifest }).then(() => listRuns().then(setRecent));
+      setHash(`run=${id}`);
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [state.status, state.results, state.source]);
+
+  // Shared and saved runs carry no sample records; load them when a dataset is opened.
+  useEffect(() => {
+    for (const r of state.results) {
+      if (!expanded.has(r.gse) || r.dossier || loadingDossiers.current.has(r.gse)) continue;
+      loadingDossiers.current.add(r.gse);
+      loadDossier(r, makeNcbi(keys, settings), { cache: cache.current })
+        .then(patch)
+        .finally(() => loadingDossiers.current.delete(r.gse));
+    }
+  }, [expanded, state.results]);
+
+  const share = async () => {
+    if (!state.protocol || !state.input) return;
+    try {
+      const { url, withExplanations } = await shareUrl({ results: state.results, protocol: state.protocol, input: state.input, manifest: state.manifest }, labels);
+      await navigator.clipboard.writeText(url).catch(() => undefined);
+      setNotice(`Link copied (${Math.round(url.length / 1000)} KB${withExplanations ? '' : ', without explanations to keep it short'}). Anyone with the link sees this ranking; no key needed.`);
+    } catch (err) {
+      setNotice(`Could not create a link: ${(err as Error).message}`);
+    }
+  };
 
   useEffect(() => saveSettings(settings), [settings]);
   useEffect(() => saveKeys(keys, settings.rememberKeys), [keys, settings.rememberKeys]);
@@ -116,6 +197,8 @@ export default function App() {
 
   const screen = (withKeys: Keys = keys) => {
     if (blocker) return;
+    setRunId(undefined);
+    setHash('');
     setTab('results');
     setView('all');
     setExpanded(new Set());
@@ -141,6 +224,9 @@ export default function App() {
 
   const newRequest = () => {
     reset();
+    setRunId(undefined);
+    setHash('');
+    setNotice(undefined);
     setProtocol(EMPTY_PROTOCOL);
     setGseText('');
     setGoldText('');
@@ -168,7 +254,7 @@ export default function App() {
   // A SuperSeries whose SubSeries are also in the list only repeats their samples.
   const duplicates = useMemo(() => {
     const listed = new Set(results.map((r) => r.gse));
-    return new Set(results.filter((r) => r.dossier?.series?.superSeriesOf?.some((g) => listed.has(g))).map((r) => r.gse));
+    return new Set(results.filter((r) => (r.dossier?.series?.superSeriesOf ?? r.superSeriesOf)?.some((g) => listed.has(g))).map((r) => r.gse));
   }, [results]);
 
   const visible = useMemo(() => {
@@ -197,10 +283,12 @@ export default function App() {
   };
 
   const canExplain = Boolean(demo) || chatReady;
-  const explainTargets = (rs: DatasetResult[]) => {
+  const explainTargets = async (rs: DatasetResult[]) => {
     if (demo) return explainMany(rs);
     const { ep, model } = chatTarget(keys, settings);
-    return explainMany(rs, ep, model);
+    // Shared and saved runs load the evidence first; explanations quote from it.
+    const ready = await Promise.all(rs.map((r) => (r.dossier ? r : loadDossier(r, makeNcbi(keys, settings), { cache: cache.current }).then((x) => (patch(x), x)))));
+    return explainMany(ready, ep, model);
   };
   const topToExplain = results.filter((r) => r.screening && !r.explanation && (!demo || demo.explanations[r.gse])).slice(0, 10);
 
@@ -239,7 +327,7 @@ export default function App() {
 
       <header className="flex items-center gap-3 px-4 py-2 brutal-border-b bg-[var(--color-accent)] shrink-0">
         <button className="flex items-center gap-2" onClick={newRequest} title="Start a new request">
-          <img src={omigatorLogo} alt="" className="h-9 w-auto" />
+          <img src={omigatorLogo} alt="" className="h-10 w-auto" />
           <span className="font-display text-xl uppercase leading-none">Omigator</span>
         </button>
         <span className="text-xs mono hidden sm:inline">v{VERSION}</span>
@@ -283,6 +371,14 @@ export default function App() {
             onManual={() => setWorkspace(true)}
             onDemo={openDemo}
             onOpenSettings={() => setShowSettings(true)}
+            recent={recent}
+            onOpenRun={async (id) => {
+              const run = await fetchRun(id);
+              if (!run) return;
+              setRunId(id);
+              setHash(`run=${id}`);
+              showRun({ ...run, message: `Saved run from ${(run.manifest?.createdAt ?? '').slice(0, 10)}`, source: 'saved' });
+            }}
           />
         </main>
       ) : (
@@ -315,7 +411,7 @@ export default function App() {
                 {(
                   [
                     ['results', 'Results'],
-                    ['insights', 'Calibrate & evaluate'],
+                    ['insights', 'Check accuracy'],
                     ['log', 'Log'],
                   ] as [Tab, string][]
                 ).map(([t, label], i) => (
@@ -330,6 +426,9 @@ export default function App() {
                 {state.total > 0 && ` · ${state.done}/${state.total}`}
                 {state.manifest && ` · ${usd(state.manifest.cost.screening + state.manifest.cost.explanations)}`}
               </div>
+              <button className="brutal-button px-2 py-1 text-sm" onClick={share} disabled={!results.some((r) => r.screening) || running || Boolean(demo)} title="Copy a link that opens this ranking for anyone, without a key">
+                <Link2 className="w-4 h-4" /> Share link
+              </button>
               <button className="brutal-button px-2 py-1 text-sm" onClick={() => exportCsv(results, shownProtocol, labels)} disabled={!results.length}>
                 <Download className="w-4 h-4" /> CSV
               </button>
@@ -345,6 +444,18 @@ export default function App() {
             {demo && (
               <div className="px-4 py-2 brutal-border-b bg-[var(--color-warn)] text-sm shrink-0">
                 <b>Demo:</b> {demo.note}
+              </div>
+            )}
+            {state.source === 'shared' && !demo && (
+              <div className="px-4 py-2 brutal-border-b bg-[var(--color-accent)] text-sm shrink-0">
+                <b>Shared run</b> from {state.manifest?.createdAt.slice(0, 10)}, screened with {state.manifest?.scorer.snapshots.join(', ') || 'an unknown model'}. Sample
+                details load from GEO when you open a dataset; explanations need your own key.
+              </div>
+            )}
+            {notice && (
+              <div className="px-4 py-2 brutal-border-b bg-[var(--color-paper)] text-sm shrink-0 flex items-start gap-3">
+                <p className="flex-1">{notice}</p>
+                <button className="underline" onClick={() => setNotice(undefined)}>Dismiss</button>
               </div>
             )}
 
@@ -385,10 +496,22 @@ export default function App() {
                       </button>
                     )}
                   </div>
+                  <LabelBar
+                    results={results}
+                    labels={labels}
+                    calibrated={Boolean(platt)}
+                    hintSeen={labelHintSeen}
+                    onHintSeen={() => {
+                      setLabelHintSeen(true);
+                      save('omigator.labelHint', { seen: true });
+                    }}
+                    onDetails={() => setTab('insights')}
+                    onAudit={startAudit}
+                  />
                   {view === 'audit' && (
                     <p className="text-sm card p-3">
-                      Ten datasets picked at random. Mark each as relevant 👍 or not 👎; <b>Calibrate &amp; evaluate</b> then estimates how many
-                      relevant datasets the decisions keep.
+                      Ten datasets picked at random. Mark each as relevant 👍 or not 👎. Random picks give an honest estimate of how many relevant
+                      datasets the decisions keep; see <b>Check accuracy</b>.
                     </p>
                   )}
                   {visible.map(({ r, rank }) => (
@@ -427,6 +550,64 @@ export default function App() {
           </main>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Explains what the thumbs do and, once used, what they told us. */
+function LabelBar({
+  results,
+  labels,
+  calibrated,
+  hintSeen,
+  onHintSeen,
+  onDetails,
+  onAudit,
+}: {
+  results: DatasetResult[];
+  labels: Record<string, boolean>;
+  calibrated: boolean;
+  hintSeen: boolean;
+  onHintSeen: () => void;
+  onDetails: () => void;
+  onAudit: () => void;
+}) {
+  const screened = results.filter((r) => r.screening);
+  const marked = screened.filter((r) => labels[r.gse] !== undefined);
+  const relevant = marked.filter((r) => labels[r.gse]);
+  const kept = relevant.filter((r) => r.screening!.decision === 'include').length;
+  const wrongIncludes = marked.filter((r) => !labels[r.gse] && r.screening!.decision === 'include').length;
+
+  if (!marked.length) {
+    if (hintSeen) return null;
+    return (
+      <div className="card p-3 text-sm flex flex-wrap items-start gap-3">
+        <p className="flex-1 min-w-[16rem]">
+          <b>Tip:</b> mark datasets you checked as relevant 👍 or not 👎 (buttons on the right). With a few marks Omigator tells you how many
+          relevant datasets <i>include</i> keeps, shows a personal probability of relevance per dataset, and how far down the list you need
+          to read. Marks are saved with the run and go into exports and share links.
+        </p>
+        <button className="brutal-button px-2 py-1 text-sm" onClick={onAudit}>Mark 10 random ones</button>
+        <button className="underline text-sm" onClick={onHintSeen}>Got it</button>
+      </div>
+    );
+  }
+  return (
+    <div className="card p-3 text-sm flex flex-wrap items-center gap-x-4 gap-y-1">
+      <span>
+        Your marks: <b>{relevant.length}</b> 👍 · <b>{marked.length - relevant.length}</b> 👎
+      </span>
+      {relevant.length > 0 && (
+        <span>
+          <i>Include</i> keeps <b>{kept} of {relevant.length}</b> relevant
+          {wrongIncludes > 0 && <> · {wrongIncludes} of your 👎 are marked include</>}
+        </span>
+      )}
+      <span className="text-[var(--color-muted)]">
+        {calibrated ? 'P(relevant) per dataset is now calibrated to your marks.' : 'Mark at least 2 relevant and 2 not relevant to calibrate.'}
+      </span>
+      <span className="flex-1" />
+      <button className="underline" onClick={onDetails}>Details</button>
     </div>
   );
 }

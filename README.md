@@ -27,6 +27,11 @@
 
 Things you can do with the results:
 
+- **Share a link.** The link holds the ranking, the probabilities, your marks and (space permitting)
+  the explanations. Whoever opens it sees the same list without a key; sample details are fetched
+  from GEO when they open a dataset. Nothing is uploaded anywhere: the run lives in the link itself.
+- **Come back later.** Every run is saved in your browser and listed on the start page, and the
+  address bar points to it, so a reload or a misclick loses nothing.
 - Mark datasets 👍 or 👎. Omigator then estimates how many relevant datasets the decisions keep,
   and how far down the list you need to read to keep 90–99% of them.
 - Paste the GSE list of a published meta-analysis to see how well the ranking matches it.

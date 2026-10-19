@@ -160,4 +160,6 @@ export interface DatasetResult {
   screening?: Screening;
   explanation?: Explanation;
   error?: string;
+  /** GEO SuperSeries relation, kept when the dossier is not (restored or shared runs). */
+  superSeriesOf?: string[];
 }

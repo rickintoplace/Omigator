@@ -45,11 +45,19 @@ export function InsightsView({ results, labels, goldText, onGoldText, onAudit }:
   return (
     <div className="p-6 space-y-8 max-w-4xl">
       <section className="brutal-border bg-[var(--color-paper)] p-4 space-y-3">
-        <h3 className="font-display text-xl uppercase">How much can you trust the cut-off?</h3>
+        <h3 className="font-display text-xl uppercase">How much can you trust the list?</h3>
         <p className="text-sm">
-          Model probabilities are not calibrated for your question. Mark datasets as relevant 👍 or not 👎 in the list and Omigator
-          estimates how many relevant datasets the decisions keep. Label a <b>random</b> sample, not just the top of the list — otherwise
-          the estimate is too optimistic.
+          The model's probabilities say how well a dataset matches the checklist, not how often the model is right on <i>your</i> question.
+          Your 👍 / 👎 marks close that gap:
+        </p>
+        <ul className="text-sm list-disc pl-5 space-y-1">
+          <li>how many of the datasets you marked relevant end up in <i>include</i>, with a confidence interval;</li>
+          <li>a probability of relevance per dataset, fitted to your marks (shown in the list once you have 2 of each);</li>
+          <li>how far down the ranking you need to read to keep 90, 95 or 99% of the relevant datasets.</li>
+        </ul>
+        <p className="text-sm">
+          Mark a <b>random</b> sample, not just the top of the list; otherwise the estimates are too optimistic. Marks are saved with the run
+          and included in the CSV and in share links.
         </p>
         <div className="flex flex-wrap items-center gap-3">
           <button className="brutal-button px-3 py-2 text-sm gap-2" onClick={onAudit} disabled={!screened.length}>

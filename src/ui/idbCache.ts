@@ -43,8 +43,52 @@ export async function createIdbCache(): Promise<Cache> {
 export async function clearIdbCache(): Promise<void> {
   try {
     const db = await open();
-    await tx(db, 'readwrite', (s) => s.clear());
+    // Keep saved runs; clear only cached GEO records and model answers.
+    const keys = (await tx(db, 'readonly', (s) => s.getAllKeys())) as string[];
+    for (const k of keys.filter((k) => !String(k).startsWith('run:') && k !== 'runs:index')) await tx(db, 'readwrite', (s) => s.delete(k));
   } catch {
     /* nothing to clear */
   }
+}
+
+/** Saved runs: every finished run is kept locally so a reload or misclick loses nothing. */
+export interface SavedRunMeta {
+  id: string;
+  createdAt: string;
+  intent: string;
+  count: number;
+  include: number;
+  model: string;
+}
+
+const MAX_RUNS = 20;
+
+async function kv(): Promise<IDBDatabase | undefined> {
+  try {
+    return await open();
+  } catch {
+    return undefined;
+  }
+}
+
+export async function saveRun(meta: SavedRunMeta, data: unknown): Promise<void> {
+  const db = await kv();
+  if (!db) return;
+  const index = ((await tx(db, 'readonly', (s) => s.get('runs:index')).catch(() => undefined)) as SavedRunMeta[] | undefined) ?? [];
+  const next = [meta, ...index.filter((m) => m.id !== meta.id)];
+  for (const old of next.slice(MAX_RUNS)) await tx(db, 'readwrite', (s) => s.delete(`run:${old.id}`)).catch(() => undefined);
+  await tx(db, 'readwrite', (s) => s.put(data, `run:${meta.id}`)).catch(() => undefined);
+  await tx(db, 'readwrite', (s) => s.put(next.slice(0, MAX_RUNS), 'runs:index')).catch(() => undefined);
+}
+
+export async function listRuns(): Promise<SavedRunMeta[]> {
+  const db = await kv();
+  if (!db) return [];
+  return ((await tx(db, 'readonly', (s) => s.get('runs:index')).catch(() => undefined)) as SavedRunMeta[] | undefined) ?? [];
+}
+
+export async function getRun<T>(id: string): Promise<T | undefined> {
+  const db = await kv();
+  if (!db) return undefined;
+  return (await tx(db, 'readonly', (s) => s.get(`run:${id}`)).catch(() => undefined)) as T | undefined;
 }
