@@ -144,6 +144,12 @@ export function StartScreen(p: StartScreenProps) {
         <footer className="text-xs text-[var(--color-muted)] flex gap-4 justify-center pt-4">
           <a className="link" href="/legal.html#privacy">Privacy</a>
           <a className="link" href="/legal.html#imprint">Imprint</a>
+          <span>
+            Made by{' '}
+            <a className="link" href="https://rickinto.place" target="_blank" rel="noreferrer">
+              rickinto.place
+            </a>
+          </span>
         </footer>
       </div>
     </div>

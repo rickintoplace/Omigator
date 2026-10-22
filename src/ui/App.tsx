@@ -3,6 +3,7 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { buildGdsTerm, type DatasetResult, type Decision, draftProtocol, fitPlatt, loadDossier, normalizeGseList, plattProbability, type Protocol } from '../core';
 import { CiteDialog, GITHUB_URL } from './components/CiteDialog';
+import { DnaProgress } from './components/DnaProgress';
 import { InsightsView } from './components/InsightsView';
 import { Logo } from './components/Logo';
 import { KeyPrompt } from './components/KeyPrompt';
@@ -551,8 +552,8 @@ export default function App() {
               </button>
             </div>
             {running && state.total > 0 && (
-              <div className="h-1.5 bg-[var(--color-surface)] shrink-0">
-                <div className="h-full bg-[var(--color-ink)] transition-all" style={{ width: `${(100 * state.done) / state.total}%` }} />
+              <div className="px-4 py-1.5 brutal-border-b bg-[var(--color-surface)] shrink-0">
+                <DnaProgress done={state.done} total={state.total} className="h-6" />
               </div>
             )}
             {demo && (
