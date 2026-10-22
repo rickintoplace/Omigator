@@ -9,14 +9,14 @@
  */
 
 /** Where the motion starts; from here it grows in until the tail at X_END. */
-export const JOINT = 630;
+export const JOINT = 430;
 const X_END = 1010;
 /**
  * Largest slide along the axis and sway across it (user units), reached at the tail. The tail only
  * slides back towards the head (from 0 to −SLIDE) and sways little: the image has no room around it.
  */
 const SLIDE = 56;
-const SWAY = 8;
+const SWAY = 2;
 /**
  * Wave numbers of the slide and the sway. The slide's wave is long, so the slide stretches the
  * helix only a little (the bend must never fold a path over itself); the sway's is shorter.
