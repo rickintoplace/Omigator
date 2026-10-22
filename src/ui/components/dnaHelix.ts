@@ -1,14 +1,13 @@
 /**
- * Drawing of the progress helix (CSS pixels). It lies on a line (the toolbar's bottom edge): a
- * faint double helix turning about that line, whose two strands close up into one strong line
- * where the work is done. Its height is set where it is used (DnaProgress in App.tsx); the look
- * is set by the constants below.
+ * Drawing of the progress helix (CSS pixels). It is the toolbar's bottom edge: a plain line at
+ * rest; during a run a faint double helix turning about that line, whose two strands close up
+ * into one strong line where the work is done. Its height is set where it is used (DnaProgress in
+ * App.tsx); the look is set by the constants below.
  *
  * A strand at angle α = 2π·x/turn + spin lies at y = mid − swing·cos α and faces the viewer where
  * sin α > 0. Where the work is done the swing is 0, with a soft front of FRONT pixels. `presence`
  * spreads the strands out of the line when a run starts and lays them back into it at the end;
- * at 0 nothing is drawn, and just before that everything is a line of LINE_REST width, the same
- * as the edge it lies on.
+ * at 0 everything is the plain edge, LINE_REST wide.
  */
 
 // ---- Look (sizes relative to the bar's height unless noted) ----
@@ -26,15 +25,15 @@ const PAIR = 0.45;
 /** Base pairs per turn. */
 const PAIRS = 6;
 /** Width of the soft front where the strands close up (pixels). */
-const FRONT = 60;
+const FRONT = 110;
 /** Width of the line the strands close up into, and of the edge it lies on (pixels). */
 const LINE = 4;
 const LINE_REST = 2;
 /** Opacity of the part done and of the helix still ahead. */
 const DONE = 1;
-const AHEAD = 0.3;
+const AHEAD = 0.5;
 
-type Pt = { x: number; y: number; w: number };
+type Pt = { x: number; y: number; w: number; gap?: number };
 
 const smoothstep = (a: number, b: number, v: number) => {
   const t = Math.min(1, Math.max(0, (v - a) / (b - a)));
@@ -67,19 +66,27 @@ function ribbon(ctx: CanvasRenderingContext2D, pts: Pt[]) {
 
 /**
  * Draws the helix at `progress` (0–1), turned by `spin` (radians), spread out by `presence` (0–1),
- * into a cleared context of `width` × `height` CSS pixels.
+ * into a cleared context of `width` × `height` CSS pixels. At presence 0 it is just the line.
  */
 export function drawDna(ctx: CanvasRenderingContext2D, width: number, height: number, progress: number, spin: number, presence: number, ink: string) {
-  if (presence <= 0) return;
   const mid = height / 2;
-  const swing = height * SWING * presence;
+  ctx.save();
+  ctx.fillStyle = ink;
+  ctx.strokeStyle = ink;
+  if (presence <= 0) {
+    ctx.fillRect(0, mid - LINE_REST / 2, width, LINE_REST);
+    ctx.restore();
+    return;
+  }
+  const swing = height * SWING;
   const strandWidth = Math.max(1.2, height * STRAND);
   const gap = Math.max(0.8, height * GAP);
   const K = (2 * Math.PI) / (height * TURN);
   const line = LINE_REST + (LINE - LINE_REST) * presence;
   // The front moves from just before the left edge to just past the right one.
   const front = -FRONT / 2 + progress * (width + FRONT);
-  const closedAt = (x: number) => 1 - smoothstep(front - FRONT / 2, front + FRONT / 2, x);
+  /** How far the strands have closed up into the line at x: where the work is done, or as they lie down at the start and end. */
+  const closedAt = (x: number) => 1 - smoothstep(front - FRONT / 2, front + FRONT / 2, x) * presence;
   const n = Math.ceil(width) + 1;
 
   const fronts: Pt[][] = [];
@@ -95,7 +102,7 @@ export function drawDna(ctx: CanvasRenderingContext2D, width: number, height: nu
       const isFront = facing >= 0;
       // Edge-on a strand narrows; closing up, both strands become the line.
       const open = strandWidth * (EDGE_ON + (1 - EDGE_ON) * Math.abs(facing) ** 0.7);
-      const p = { x, y: mid - swing * (1 - closed) * Math.cos(a), w: open + (line - open) * closed };
+      const p = { x, y: mid - swing * (1 - closed) * Math.cos(a), w: open + (line - open) * closed, gap: gap * (1 - smoothstep(0, 0.45, closed)) };
       if (isFront !== runFront && run.length) {
         run.push(p);
         (runFront ? fronts : backs).push(run);
@@ -107,9 +114,6 @@ export function drawDna(ctx: CanvasRenderingContext2D, width: number, height: nu
     if (run.length > 1) (runFront ? fronts : backs).push(run);
   }
 
-  ctx.save();
-  ctx.fillStyle = ink;
-  ctx.strokeStyle = ink;
   // Behind: back halves of the strands and the base pairs.
   for (const r of backs) {
     ribbon(ctx, r);
@@ -130,23 +134,17 @@ export function drawDna(ctx: CanvasRenderingContext2D, width: number, height: nu
     ctx.lineTo(x, mid + half);
     ctx.stroke();
   }
-  // Front halves cut a gap into what lies behind them, then go on top. The gap runs along their
-  // sides only, so a strand that passes from behind to the front stays in one piece.
-  ctx.lineWidth = 2 * gap;
-  ctx.lineJoin = 'round';
+  // Front halves cut a gap into what lies behind them, then go on top. The gap is a wider ribbon
+  // along the same stretch (no caps), so a strand passing from behind to the front stays in one
+  // piece; it is gone before the strands meet, so they merge into the line without slivers.
   for (const r of fronts) {
     ctx.globalCompositeOperation = 'destination-out';
-    for (const side of sides(r)) {
-      ctx.beginPath();
-      side.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
-      ctx.stroke();
-    }
+    ribbon(ctx, r.map((p) => ({ ...p, w: p.w + 2 * (p.gap ?? 0) })));
+    ctx.fill();
     ctx.globalCompositeOperation = 'source-over';
     ribbon(ctx, r);
     ctx.fill();
   }
-  // Where the strands have closed up they are one solid line (gaps cut there are filled again).
-  ctx.fillRect(0, mid - line / 2, Math.max(0, front - FRONT / 2), line);
   // Ahead the helix stays faint; laid back into the line at the end, it is solid again.
   ctx.globalCompositeOperation = 'destination-in';
   const fade = ctx.createLinearGradient(front - FRONT / 2, 0, front + FRONT / 2, 0);

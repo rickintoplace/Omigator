@@ -6,15 +6,16 @@ const FOLLOW_MS = 1200;
 /** Time constant for the line to close up the rest once the run is over. */
 const FINISH_MS = 150;
 /** One turn of the molecule about its axis. */
-const SPIN_MS = 1400;
+const SPIN_MS = -1400;
 /** Time constant for the strands to spread out of the line at the start and to lie back at the end. */
 const EASE_MS = 350;
 
 /**
- * Progress of a run as a double helix lying on a line (see dnaHelix.ts). Laid over the toolbar's
- * bottom edge, it takes no room: when a run starts, the strands spread out of the edge and turn;
- * as datasets are done they close up into a strong line from the left; at the end the line (or
- * whatever is still open, if the run was stopped) lies back into the edge and is gone.
+ * Progress of a run as a double helix on a line (see dnaHelix.ts). It draws the toolbar's bottom
+ * edge itself, so it takes no room and nothing lies behind the helix: at rest it is the plain edge;
+ * when a run starts, the strands spread out of it and turn; as datasets are done they close up
+ * into a strong line from the left; at the end the line (or whatever is still open, if the run
+ * was stopped) lies back into the plain edge.
  */
 export function DnaProgress({ progress, active, className = '' }: { progress: number; active: boolean; className?: string }) {
   const canvas = useRef<HTMLCanvasElement>(null);
