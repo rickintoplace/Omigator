@@ -62,7 +62,7 @@ export function DnaProgress({ done, total, className = '' }: { done: number; tot
   return (
     <canvas
       ref={canvas}
-      className={`block w-full text-[var(--color-ink)] ${className}`}
+      className={`block w-full ${className}`}
       role="progressbar"
       aria-label="Screening progress"
       aria-valuemin={0}

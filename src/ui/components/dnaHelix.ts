@@ -1,22 +1,33 @@
 /**
  * Drawing of the progress helix (CSS pixels): a double strand that is a flat ladder at the start
- * and winds up into a helix as the run progresses.
+ * and winds up into a helix as the run progresses. Its height is set where it is used (DnaProgress
+ * in App.tsx); the look is set by the constants below.
  *
- * The twist per pixel is K where the work is done and 0 ahead of it, with a soft front of FRONT
+ * The twist per pixel is 2π/turn where the work is done and 0 ahead of it, with a soft front of FRONT
  * pixels. Strand angles add up the twist from the right: the ladder ahead stays still, and every
  * step of progress turns the wound part a little further, so the strand visibly winds on.
  * A strand at angle α lies at y = mid − amp·cos α and faces the viewer where sin α > 0.
  */
 
-/** One turn of the helix. */
-const PERIOD = 62;
-const K = (2 * Math.PI) / PERIOD;
-/** Width of the soft front between helix and ladder. */
-const FRONT = 70;
+// ---- Look (sizes relative to the bar's height unless noted) ----
+/** Length of one turn of the helix. */
+const TURN = 3.2;
+/** Swing of the strands from the middle (0.5 reaches the edges). */
+const SWING = 0.34;
+/** Width of a strand facing the viewer; it narrows to EDGE_ON of that where seen edge-on. */
+const STRAND = 0.14;
+const EDGE_ON = 0.3;
+/** Gap a front strand leaves around itself where it crosses one behind. */
+const GAP = 0.08;
+/** Width of a base pair, relative to a strand. */
+const PAIR = 0.45;
 /** Base pairs per turn; the ladder keeps them at the same spacing. */
-const PAIRS = 8;
-/** Opacity of the part not done yet. */
-const AHEAD = 0.22;
+const PAIRS = 6;
+/** Width of the soft front between helix and ladder (pixels). */
+const FRONT = 60;
+/** Opacity of the part done and of the part still ahead. */
+const DONE = 0.7;
+const AHEAD = 0.18;
 
 type Pt = { x: number; y: number; w: number };
 
@@ -52,9 +63,11 @@ function ribbon(ctx: CanvasRenderingContext2D, pts: Pt[]) {
 /** Draws the helix at `progress` (0–1) into a cleared context of `width` × `height` CSS pixels. */
 export function drawDna(ctx: CanvasRenderingContext2D, width: number, height: number, progress: number, ink: string) {
   const mid = height / 2;
-  const amp = height * 0.32;
-  const strandWidth = Math.max(2, height * 0.13);
-  const gap = Math.max(1.5, height * 0.07);
+  const amp = height * SWING;
+  const strandWidth = Math.max(1.2, height * STRAND);
+  const gap = Math.max(0.8, height * GAP);
+  const period = height * TURN;
+  const K = (2 * Math.PI) / period;
   // The front moves from just before the left edge to just past the right one.
   const front = -FRONT / 2 + progress * (width + FRONT);
   const step = 1;
@@ -82,7 +95,7 @@ export function drawDna(ctx: CanvasRenderingContext2D, width: number, height: nu
       // The flat ladder has no front and back; only a strand that is wound can pass behind.
       const isFront = facing >= 0 || wound[i] < 0.3;
       // Edge-on, a wound strand narrows; the flat ladder keeps its full width.
-      const helixWidth = 0.3 + 0.7 * Math.abs(facing) ** 0.7;
+      const helixWidth = EDGE_ON + (1 - EDGE_ON) * Math.abs(facing) ** 0.7;
       const w = strandWidth * (1 - wound[i] + wound[i] * helixWidth);
       const p = { x: xs[i], y: mid - amp * Math.cos(a), w };
       if (isFront !== runFront && run.length) {
@@ -104,9 +117,9 @@ export function drawDna(ctx: CanvasRenderingContext2D, width: number, height: nu
     ribbon(ctx, r);
     ctx.fill();
   }
-  ctx.lineWidth = Math.max(1, strandWidth * 0.45);
+  ctx.lineWidth = Math.max(0.8, strandWidth * PAIR);
   ctx.lineCap = 'round';
-  const spacing = PERIOD / PAIRS;
+  const spacing = period / PAIRS;
   for (let x = spacing / 2; x < width; x += spacing) {
     const i = Math.round(x / step);
     const spread = Math.abs(Math.cos(angle[i]));
@@ -137,7 +150,7 @@ export function drawDna(ctx: CanvasRenderingContext2D, width: number, height: nu
   // The part not done yet stays faint.
   ctx.globalCompositeOperation = 'destination-in';
   const fade = ctx.createLinearGradient(front - FRONT / 2, 0, front + FRONT / 2, 0);
-  fade.addColorStop(0, 'rgba(0,0,0,1)');
+  fade.addColorStop(0, `rgba(0,0,0,${DONE})`);
   fade.addColorStop(1, `rgba(0,0,0,${AHEAD})`);
   ctx.fillStyle = fade;
   ctx.fillRect(0, 0, width, height);

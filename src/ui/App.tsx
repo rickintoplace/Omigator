@@ -552,9 +552,7 @@ export default function App() {
               </button>
             </div>
             {running && state.total > 0 && (
-              <div className="px-4 py-1.5 brutal-border-b bg-[var(--color-surface)] shrink-0">
-                <DnaProgress done={state.done} total={state.total} className="h-6" />
-              </div>
+              <DnaProgress done={state.done} total={state.total} className="h-3 shrink-0 brutal-border-b bg-[var(--color-surface)]" />
             )}
             {demo && (
               <div className="px-4 py-2 brutal-border-b bg-[var(--color-warn)] text-sm shrink-0">
