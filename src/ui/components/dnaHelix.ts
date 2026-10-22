@@ -21,9 +21,9 @@ const EDGE_ON = 0.3;
 /** Gap a front strand leaves around itself where it crosses one behind. */
 const GAP = 0.08;
 /** Width of a base pair, relative to a strand. */
-const PAIR = 0.45;
+const PAIR = 0.55;
 /** Base pairs per turn. */
-const PAIRS = 6;
+const PAIRS = 12;
 /** Width of the soft front where the strands close up (pixels). */
 const FRONT = 110;
 /** Width of the line the strands close up into, and of the edge it lies on (pixels). */
@@ -31,7 +31,7 @@ const LINE = 4;
 const LINE_REST = 2;
 /** Opacity of the part done and of the helix still ahead. */
 const DONE = 1;
-const AHEAD = 0.5;
+const AHEAD = 0.7;
 
 type Pt = { x: number; y: number; w: number; gap?: number };
 

@@ -6,7 +6,7 @@ const FOLLOW_MS = 1200;
 /** Time constant for the line to close up the rest once the run is over. */
 const FINISH_MS = 150;
 /** One turn of the molecule about its axis. */
-const SPIN_MS = -1400;
+const SPIN_MS = 1400;
 /** Time constant for the strands to spread out of the line at the start and to lie back at the end. */
 const EASE_MS = 350;
 
