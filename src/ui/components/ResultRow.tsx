@@ -1,4 +1,5 @@
-import { ChevronDown, ChevronRight, CircleAlert, CircleCheck, ExternalLink, LoaderCircle, MessageSquareQuote, RotateCcw, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ChevronRight, CircleAlert, CircleCheck, ExternalLink, LoaderCircle, MessageSquareQuote, RotateCcw, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { type Criterion, type DatasetResult, familyFileUrl, passProbability, type Protocol } from '../../core';
 import { DecisionChip, passColor, pct, ProbBar } from './ui';
 
@@ -21,6 +22,19 @@ const KIND: Record<Criterion['kind'], string> = { require: 'must', exclude: 'mus
 
 export function ResultRow(props: ResultRowProps) {
   const { result: r, protocol, expanded } = props;
+  // Details stay mounted while they animate closed, and open from zero height on the next frame.
+  const [mounted, setMounted] = useState(expanded);
+  const [open, setOpen] = useState(expanded);
+  useEffect(() => {
+    if (!expanded) return setOpen(false);
+    setMounted(true);
+    let inner = 0;
+    const outer = requestAnimationFrame(() => (inner = requestAnimationFrame(() => setOpen(true))));
+    return () => {
+      cancelAnimationFrame(outer);
+      cancelAnimationFrame(inner);
+    };
+  }, [expanded]);
   const s = r.screening;
   const decision = s ? s.decision : r.error ? 'failed' : 'pending';
   const c = r.candidate;
@@ -29,7 +43,9 @@ export function ResultRow(props: ResultRowProps) {
     <article className={`brutal-border bg-[var(--color-paper)] ${expanded ? 'brutal-shadow' : 'brutal-shadow-sm'} transition-shadow`}>
       <div className="flex items-stretch">
         <button className="flex-1 min-w-0 text-left p-3 flex gap-3 items-start hover-surface" onClick={props.onToggle} aria-expanded={expanded}>
-          <span className="pt-0.5">{expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}</span>
+          <span className="pt-0.5">
+            <ChevronRight className="w-4 h-4 chevron" data-open={open} />
+          </span>
           <span className="w-8 shrink-0 text-right font-display text-lg leading-none pt-0.5 text-[var(--color-muted)]">{props.rank}</span>
           <span className="min-w-0 flex-1">
             <span className="flex flex-wrap items-center gap-2">
@@ -85,7 +101,9 @@ export function ResultRow(props: ResultRowProps) {
         </div>
       </div>
 
-      {expanded && (
+      {mounted && (
+        <div className="collapsible" data-open={open} onTransitionEnd={(e) => e.target === e.currentTarget && !open && setMounted(false)}>
+        <div>
         <div className="brutal-border-t p-4 space-y-5 bg-[var(--color-surface)] text-sm">
           <div className="flex flex-wrap gap-2">
             <a className="brutal-button px-2 py-1 text-xs gap-1" href={`https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=${r.gse}`} target="_blank" rel="noreferrer">
@@ -187,6 +205,8 @@ export function ResultRow(props: ResultRowProps) {
               {r.explanation && ` · explained by ${r.explanation.model}`}
             </div>
           )}
+        </div>
+        </div>
         </div>
       )}
     </article>

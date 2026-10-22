@@ -1,4 +1,4 @@
-import { Download, ExternalLink, FileJson, Link2, LoaderCircle, MessageSquareQuote, Play, Plus, Quote, Settings as SettingsIcon, Square } from 'lucide-react';
+import { Download, ExternalLink, FileJson, Link2, LoaderCircle, Lock, MessageSquareQuote, Play, Plus, Quote, Settings as SettingsIcon, Square } from 'lucide-react';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { buildGdsTerm, type DatasetResult, type Decision, draftProtocol, fitPlatt, loadDossier, normalizeGseList, plattProbability, type Protocol } from '../core';
@@ -486,7 +486,13 @@ export default function App() {
       ) : (
         <div className="flex-1 min-h-0 flex flex-col md:flex-row">
           <aside className="md:w-[27rem] shrink-0 flex flex-col brutal-border-r bg-[var(--color-surface)] min-h-0">
-            <div className="flex-1 overflow-y-auto p-4">
+            {(demo || running) && (
+              <div className="flex items-center gap-2 px-4 py-2 brutal-border-b bg-[var(--color-warn)] text-sm">
+                <Lock className="w-4 h-4 shrink-0" />
+                {demo ? 'Recorded demo: this protocol is read-only.' : 'Locked while screening. Stop the run to edit.'}
+              </div>
+            )}
+            <div className={`flex-1 overflow-y-auto p-4 ${demo || running ? 'locked' : ''}`} title={demo ? 'Read-only in the demo' : running ? 'Locked while screening' : undefined}>
               <ProtocolPanel
                 protocol={protocol}
                 onChange={setProtocol}

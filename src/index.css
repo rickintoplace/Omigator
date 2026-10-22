@@ -31,21 +31,53 @@ header.site-header {
   view-transition-name: site-header;
 }
 
-/* The logo button in the header. */
+/* The logo links home; a pointer is enough. */
 .logo-home {
-  transition: transform 0.1s ease;
+  cursor: pointer;
 }
-.logo-home:hover {
-  transform: translateY(-1px);
+
+/* Result cards open and close by animating their height (grid rows 0fr ↔ 1fr). */
+.collapsible {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 220ms ease;
 }
-.logo-home:hover span {
-  text-decoration: underline;
-  text-decoration-thickness: 3px;
+.collapsible[data-open='true'] {
+  grid-template-rows: 1fr;
+}
+.collapsible > * {
+  overflow: hidden;
+  min-height: 0;
+}
+.chevron {
+  transition: transform 220ms ease;
+}
+.chevron[data-open='true'] {
+  transform: rotate(90deg);
+}
+
+/* A protocol that cannot be edited (demo, shared run, screening in progress) looks locked. */
+.locked :is(input, textarea, select, button) {
+  cursor: not-allowed;
+}
+.locked .card {
+  background-color: var(--color-surface);
+}
+.locked :is(input, textarea, select, .brutal-input, .brutal-select) {
+  color: var(--color-muted);
+  background-color: var(--color-surface);
+  border-style: dashed;
+}
+.locked .card-title,
+.locked label,
+.locked li {
+  color: var(--color-muted);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .logo-dna {
-    filter: none !important;
+  .collapsible,
+  .chevron {
+    transition: none;
   }
 }
 
