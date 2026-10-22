@@ -27,7 +27,7 @@ export function KeyPrompt({
         <KeyRound className="w-4 h-4 mt-0.5 shrink-0" />
         <span>
           {reason} Paste an <b>OpenRouter</b> key. It is sent only to OpenRouter.{' '}
-          <a className="underline inline-flex items-center gap-0.5" href="https://openrouter.ai/keys" target="_blank" rel="noreferrer">
+          <a className="link inline-flex items-center gap-0.5" href="https://openrouter.ai/keys" target="_blank" rel="noreferrer">
             Get a key <ExternalLink className="w-3 h-3" />
           </a>
         </span>
@@ -42,7 +42,7 @@ export function KeyPrompt({
         <label className="flex items-center gap-2 cursor-pointer">
           <input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} /> Remember on this device
         </label>
-        <button type="button" className="underline" onClick={onOpenSettings}>
+        <button type="button" className="link" onClick={onOpenSettings}>
           Other options (self-hosted models)
         </button>
       </div>

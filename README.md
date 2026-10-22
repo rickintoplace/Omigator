@@ -89,6 +89,9 @@ server, GitHub Pages or Vercel.
 
 ### Privacy
 
+The full privacy notice and imprint are at [`/legal.html`](legal.html) (linked from the app). Fonts
+are bundled; the app makes no requests to Google or analytics services.
+
 - Dataset metadata (series text, sample annotations, abstracts) is sent to the model provider you choose.
 - API keys go only to that provider. They are kept in the browser only if you tick *Remember keys*.
 - GEO records and model answers are cached in your browser (IndexedDB). Clear the cache in *Settings*.

@@ -28,7 +28,7 @@ export function ResultRow(props: ResultRowProps) {
   return (
     <article className={`brutal-border bg-[var(--color-paper)] ${expanded ? 'brutal-shadow' : 'brutal-shadow-sm'} transition-shadow`}>
       <div className="flex items-stretch">
-        <button className="flex-1 min-w-0 text-left p-3 flex gap-3 items-start" onClick={props.onToggle} aria-expanded={expanded}>
+        <button className="flex-1 min-w-0 text-left p-3 flex gap-3 items-start hover-surface" onClick={props.onToggle} aria-expanded={expanded}>
           <span className="pt-0.5">{expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}</span>
           <span className="w-8 shrink-0 text-right font-display text-lg leading-none pt-0.5 text-[var(--color-muted)]">{props.rank}</span>
           <span className="min-w-0 flex-1">
@@ -67,7 +67,7 @@ export function ResultRow(props: ResultRowProps) {
         </button>
         <div className="flex flex-col brutal-border-l">
           <button
-            className={`flex-1 px-3 ${props.label === true ? 'bg-[var(--color-accent)]' : 'hover:bg-[var(--color-surface)]'}`}
+            className={`flex-1 px-3 ${props.label === true ? 'bg-[var(--color-accent)]' : 'hover-surface'}`}
             onClick={() => props.onLabel(props.label === true ? undefined : true)}
             title="Relevant to me. Your marks estimate how many relevant datasets the decisions keep."
             aria-pressed={props.label === true}
@@ -75,7 +75,7 @@ export function ResultRow(props: ResultRowProps) {
             <ThumbsUp className="w-4 h-4" />
           </button>
           <button
-            className={`flex-1 px-3 brutal-border-t ${props.label === false ? 'bg-ink text-white' : 'hover:bg-[var(--color-surface)]'}`}
+            className={`flex-1 px-3 brutal-border-t ${props.label === false ? 'bg-ink text-white' : 'hover-surface'}`}
             onClick={() => props.onLabel(props.label === false ? undefined : false)}
             title="Not relevant to me"
             aria-pressed={props.label === false}

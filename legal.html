@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Privacy & Imprint – Omigator</title>
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <meta name="theme-color" content="#93ffa9" />
+    <script type="module" src="/src/legal.ts"></script>
+  </head>
+  <body>
+    <header class="site-header flex items-center gap-3 px-4 py-3 brutal-border-b bg-[var(--color-accent)]">
+      <a href="/" class="logo-home font-display text-xl uppercase leading-none">Omigator</a>
+      <span class="flex-1"></span>
+      <a class="brutal-button px-3 py-1.5 text-sm bg-white" href="/">Back to Omigator</a>
+    </header>
+
+    <main class="legal max-w-3xl mx-auto px-5 py-10 space-y-12">
+      <nav class="text-sm flex gap-4">
+        <a class="link" href="#privacy">Privacy</a>
+        <a class="link" href="#imprint">Imprint</a>
+      </nav>
+
+      <section id="privacy" class="space-y-5 scroll-mt-6">
+        <h1 class="font-display uppercase text-3xl">Privacy</h1>
+        <p>
+          <b>In short:</b> Omigator runs in your browser. It has no accounts, sets no cookies, uses no analytics or tracking, and has no
+          server of its own that receives what you enter. Your browser talks directly to the services listed below, and only when you use
+          the feature that needs them.
+        </p>
+
+        <h2>1. Controller</h2>
+        <p>The person named in the <a class="link" href="#imprint">imprint</a> is responsible for this website.</p>
+
+        <h2>2. Hosting</h2>
+        <p>
+          The public instance at omigator.vercel.app is served by Vercel Inc., 440 N Barranca Ave #4133, Covina, CA 91723, USA. When you load
+          the page, Vercel processes connection data (IP address, time, requested file, browser and operating system) to deliver the site and
+          to protect it against abuse. Legal basis: Art. 6(1)(f) GDPR (legitimate interest in a working, secure website). Vercel may process
+          data in the USA; see <a class="link" href="https://vercel.com/legal/privacy-policy" rel="noreferrer">Vercel's privacy policy</a>.
+          Fonts are delivered with the site; no requests go to Google or other font services.
+        </p>
+
+        <h2>3. Services your browser contacts</h2>
+        <ul class="list-disc pl-5 space-y-2">
+          <li>
+            <b>NCBI / National Library of Medicine (USA)</b>, when you search or screen: your search terms and GEO accession numbers, together
+            with your IP address. Omigator fetches public dataset records (GEO) and abstracts (PubMed).
+            <a class="link" href="https://www.nlm.nih.gov/web_policies.html" rel="noreferrer">NLM web policies</a>.
+          </li>
+          <li>
+            <b>OpenRouter, Inc. (USA)</b>, only if you enter an OpenRouter key: your key, your request text and checklist, and the public
+            metadata of the datasets being screened. OpenRouter passes requests on to the model provider that serves the chosen model.
+            <a class="link" href="https://openrouter.ai/privacy" rel="noreferrer">OpenRouter's privacy policy</a>.
+          </li>
+          <li><b>Your own model endpoint</b>, if you configure one: the same data as for OpenRouter, sent to the address you entered.</li>
+        </ul>
+        <p>
+          These transfers happen because you start them (search, draft, screen, explain). Legal basis: Art. 6(1)(b) GDPR. The operator of this
+          website receives none of this data.
+        </p>
+
+        <h2>4. Storage in your browser</h2>
+        <p>
+          Omigator keeps settings, your current protocol, your 👍/👎 marks and saved runs in your browser (localStorage, IndexedDB), and caches
+          GEO records and model answers there to avoid paying twice. API keys are stored only if you tick “Remember keys on this device”. This
+          data never leaves your device unless you share a link. You can delete it under Settings (cache), by removing saved runs, or by
+          clearing the site data in your browser.
+        </p>
+
+        <h2>5. Share links</h2>
+        <p>
+          A share link contains the run itself after the “#”: protocol, GEO accessions, model probabilities, your marks and, if short enough,
+          explanations. Browsers do not send this part of a link to any server. Anyone you give the link to can read its contents.
+        </p>
+
+        <h2>6. Your rights</h2>
+        <p>
+          You have the right to access, rectification, erasure, restriction of processing, objection and data portability (Art. 15–21 GDPR),
+          and to lodge a complaint with a supervisory authority (Art. 77 GDPR). As this website stores no personal data on servers of its own,
+          requests mostly concern the hosting logs described in section 2.
+        </p>
+        <p class="text-sm text-[var(--color-muted)]">Last updated: 22 October 2026.</p>
+      </section>
+
+      <section id="imprint" class="space-y-5 scroll-mt-6">
+        <h1 class="font-display uppercase text-3xl">Imprint</h1>
+        <p class="text-sm text-[var(--color-muted)]">Information according to § 5 DDG (Impressum)</p>
+        <address class="not-italic">
+          Eirik Heilmann<br />
+          <!-- TODO before publishing: postal address (street, postcode, city) -->
+          <span class="todo">[street and number]</span><br />
+          <span class="todo">[postcode and city]</span><br />
+          Germany
+        </address>
+        <p>E-mail: <a class="link" href="mailto:rickintoplace@proton.me">rickintoplace@proton.me</a></p>
+        <p>Responsible for content according to § 18(2) MStV: Eirik Heilmann, address as above.</p>
+        <h2>Liability</h2>
+        <p>
+          Omigator gives recommendations based on public metadata and machine-learning models. Check every decision against the GEO record
+          and the original publication. Links to external sites were checked when they were added; their operators are responsible for their
+          content.
+        </p>
+        <h2>Source code and licence</h2>
+        <p>
+          Omigator is open source under the MIT licence:
+          <a class="link" href="https://github.com/rickintoplace/Omigator" rel="noreferrer">github.com/rickintoplace/Omigator</a>.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

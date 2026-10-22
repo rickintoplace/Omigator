@@ -56,7 +56,7 @@ export function ProtocolPanel(props: ProtocolPanelProps) {
       <Card step="2" title="Where to look">
         <div className="grid grid-cols-2 brutal-border text-sm font-semibold">
           {(['search', 'list'] as const).map((m) => (
-            <button key={m} className={`py-1.5 ${props.mode === m ? 'bg-ink text-white' : 'bg-[var(--color-paper)] hover:bg-[var(--color-surface)]'}`} onClick={() => props.onMode(m)}>
+            <button key={m} className={`py-1.5 ${props.mode === m ? 'bg-ink text-white' : 'bg-[var(--color-paper)] hover-surface'}`} onClick={() => props.onMode(m)}>
               {m === 'search' ? 'Search GEO' : 'My GSE list'}
             </button>
           ))}
@@ -93,7 +93,7 @@ export function ProtocolPanel(props: ProtocolPanelProps) {
         )}
 
         <details className="brutal-border">
-          <summary className="px-3 py-2 text-sm cursor-pointer flex justify-between gap-2">
+          <summary className="px-3 py-2 text-sm flex justify-between gap-2">
             <span className="font-semibold">Filters</span>
             <span className="text-[var(--color-muted)] truncate">{activeFilters.join(' · ') || 'none'}</span>
           </summary>
@@ -142,7 +142,7 @@ export function ProtocolPanel(props: ProtocolPanelProps) {
                 {KINDS.map((k) => (
                   <button
                     key={k.kind}
-                    className={`px-2 py-0.5 text-xs font-semibold border-r-2 border-[var(--color-ink)] ${c.kind === k.kind ? `kind-${k.kind}` : 'bg-[var(--color-paper)] text-[var(--color-muted)] hover:bg-[var(--color-surface)]'}`}
+                    className={`px-2 py-0.5 text-xs font-semibold border-r-2 border-[var(--color-ink)] ${c.kind === k.kind ? `kind-${k.kind}` : 'bg-[var(--color-paper)] text-[var(--color-muted)] hover-surface'}`}
                     onClick={() => setCriterion(i, { kind: k.kind })}
                     title={k.hint}
                     aria-pressed={c.kind === k.kind}
@@ -151,7 +151,7 @@ export function ProtocolPanel(props: ProtocolPanelProps) {
                   </button>
                 ))}
                 <span className="flex-1" />
-                <button className="px-2 hover:bg-[var(--color-surface)]" onClick={() => set({ criteria: protocol.criteria.filter((_, j) => j !== i) })} aria-label="Remove criterion" title="Remove">
+                <button className="px-2 hover-surface" onClick={() => set({ criteria: protocol.criteria.filter((_, j) => j !== i) })} aria-label="Remove criterion" title="Remove">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>

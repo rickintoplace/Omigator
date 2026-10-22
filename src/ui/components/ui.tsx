@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, useEffect } from 'react';
 import { X } from 'lucide-react';
 import type { Decision } from '../../core';
 
@@ -32,6 +32,11 @@ export function Hint({ children }: { children: ReactNode }) {
 }
 
 export function Dialog({ title, onClose, children, wide }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    addEventListener('keydown', onKey);
+    return () => removeEventListener('keydown', onKey);
+  }, [onClose]);
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-4 md:py-10 overflow-y-auto" onMouseDown={onClose}>
       <div

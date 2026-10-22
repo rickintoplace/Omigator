@@ -56,7 +56,7 @@ export function SettingsDialog({
           hint={
             <>
               Used for screening, drafting and explanations. Sent only to OpenRouter.{' '}
-              <a className="underline inline-flex items-center gap-0.5" href="https://openrouter.ai/keys" target="_blank" rel="noreferrer">
+              <a className="link inline-flex items-center gap-0.5" href="https://openrouter.ai/keys" target="_blank" rel="noreferrer">
                 Get a key <ExternalLink className="w-3 h-3" />
               </a>{' '}
               — a few dollars of credit cover many thousands of datasets.
@@ -100,12 +100,12 @@ export function SettingsDialog({
       </Group>
 
       <details className="brutal-border" open={advanced}>
-        <summary className="px-3 py-2 cursor-pointer font-semibold">Self-hosted models and other scoring methods</summary>
+        <summary className="px-3 py-2 font-semibold">Self-hosted models and other scoring methods</summary>
         <div className="p-3 pt-1 space-y-4">
           <fieldset className="space-y-2">
             <legend className="text-sm font-semibold mb-1">Screening method</legend>
             {SCORING.map((m) => (
-              <label key={m.id} className="flex gap-3 items-start cursor-pointer">
+              <label key={m.id} className="flex gap-3 items-start p-1.5 hover-surface">
                 <input type="radio" className="mt-1" name="scoring" checked={settings.scoring === m.id} onChange={() => set({ scoring: m.id })} />
                 <span>
                   <span className="block text-sm font-medium">{m.label}</span>
@@ -146,7 +146,7 @@ export function SettingsDialog({
       </details>
 
       <details className="brutal-border">
-        <summary className="px-3 py-2 cursor-pointer font-semibold">NCBI (optional)</summary>
+        <summary className="px-3 py-2 font-semibold">NCBI (optional)</summary>
         <div className="p-3 pt-1 grid grid-cols-2 gap-3">
           <Field label="NCBI API key" hint="Raises the limit from 3 to 10 requests per second.">
             <input type="password" className="brutal-input mono text-sm" value={keys.ncbi} onChange={(e) => setKey({ ncbi: e.target.value })} autoComplete="off" />
@@ -159,7 +159,7 @@ export function SettingsDialog({
 
       <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
         <button
-          className="text-sm underline"
+          className="text-sm link"
           onClick={async () => {
             await clearIdbCache();
             setCleared(true);

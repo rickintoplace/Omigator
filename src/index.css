@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -19,6 +18,35 @@
   --color-danger-ink: #b4232a;
   --color-pass: #2fbf71;
   --color-pass-weak: #a6e3bd;
+  /* A whisper of the accent for hover and focus backgrounds. */
+  --color-tint: #effff2;
+}
+
+/* Navigation crossfades; the header stays put. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 180ms;
+}
+header.site-header {
+  view-transition-name: site-header;
+}
+
+/* The logo button in the header. */
+.logo-home {
+  transition: transform 0.1s ease;
+}
+.logo-home:hover {
+  transform: translateY(-1px);
+}
+.logo-home:hover span {
+  text-decoration: underline;
+  text-decoration-thickness: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo-dna {
+    filter: none !important;
+  }
 }
 
 ::selection {
@@ -57,11 +85,18 @@ code, pre, .mono {
 .brutal-shadow { box-shadow: 6px 6px 0 0 var(--color-ink); }
 .brutal-shadow-sm { box-shadow: 3px 3px 0 0 var(--color-ink); }
 
+/*
+ * Buttons sit on a hard shadow. Hover lifts the button while the shadow stays on the ground (it
+ * grows by exactly the lift); pressing, or a toggle being on, pushes the button into its shadow.
+ */
 .brutal-button {
+  --rest: 3px;
+  --lift: 2px;
   background-color: var(--color-paper);
   border: 2px solid var(--color-ink);
+  box-shadow: var(--rest) var(--rest) 0 0 var(--color-ink);
   font-weight: 600;
-  transition: all 0.1s ease;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background-color 0.08s ease;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -71,36 +106,50 @@ code, pre, .mono {
 }
 .brutal-button:hover:not(:disabled) {
   background-color: var(--color-accent);
-  box-shadow: 4px 4px 0 0 var(--color-ink);
-  transform: translate(-2px, -2px);
+  transform: translate(calc(-1 * var(--lift)), calc(-1 * var(--lift)));
+  box-shadow: calc(var(--rest) + var(--lift)) calc(var(--rest) + var(--lift)) 0 0 var(--color-ink);
 }
-.brutal-button:active:not(:disabled) {
-  box-shadow: none;
-  transform: none;
+.brutal-button:active:not(:disabled),
+.brutal-button[aria-pressed='true'] {
+  transform: translate(var(--rest), var(--rest));
+  box-shadow: 0 0 0 0 var(--color-ink);
+}
+.brutal-button:focus-visible {
+  outline: 3px solid var(--color-ink);
+  outline-offset: 3px;
 }
 .brutal-button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
   background-color: var(--color-surface);
+  box-shadow: none;
 }
 .button-primary {
+  --rest: 4px;
   background-color: var(--color-accent);
-  box-shadow: 4px 4px 0 0 var(--color-ink);
+}
+.button-primary:hover:not(:disabled) {
+  background-color: var(--color-accent);
 }
 
+/* Inputs: focus is a black shadow and a faint tint; inputs do not move. */
 .brutal-input,
 .brutal-select {
   background-color: var(--color-paper);
   border: 2px solid var(--color-ink);
   padding: 0.5rem 0.6rem;
   width: 100%;
-  transition: box-shadow 0.1s ease, transform 0.1s ease;
+  transition: box-shadow 0.1s ease, background-color 0.1s ease;
+}
+.brutal-select:hover,
+.brutal-input:hover {
+  background-color: var(--color-tint);
 }
 .brutal-input:focus,
 .brutal-select:focus {
   outline: none;
-  box-shadow: 4px 4px 0 0 var(--color-accent);
-  transform: translate(-2px, -2px);
+  background-color: var(--color-tint);
+  box-shadow: 3px 3px 0 0 var(--color-ink);
 }
 .brutal-select {
   appearance: none;
@@ -110,6 +159,35 @@ code, pre, .mono {
   background-repeat: no-repeat;
   background-position: right 0.7rem top 50%;
   background-size: 0.6rem auto;
+}
+
+/* Text actions: underlined, highlighted on hover. */
+.link {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  transition: background-color 0.08s ease;
+}
+.link:hover {
+  background-color: var(--color-accent);
+  text-decoration-thickness: 2px;
+}
+
+/* Plain clickable surfaces (tabs, rows, list items) darken slightly on hover. */
+.hover-surface {
+  cursor: pointer;
+  transition: background-color 0.08s ease;
+}
+.hover-surface:hover {
+  background-color: var(--color-tint);
+}
+
+details > summary {
+  cursor: pointer;
+  transition: background-color 0.08s ease;
+}
+details > summary:hover {
+  background-color: var(--color-tint);
 }
 
 /* The one input that matters most: the researcher's description. */
@@ -125,7 +203,7 @@ code, pre, .mono {
 }
 .intent-input:focus {
   outline: none;
-  box-shadow: 6px 6px 0 0 var(--color-accent), 6px 6px 0 2px var(--color-ink);
+  background-color: var(--color-tint);
 }
 
 .card {
@@ -177,3 +255,14 @@ code, pre, .mono {
 ::-webkit-scrollbar-track { background: var(--color-paper); border-left: 2px solid var(--color-ink); }
 ::-webkit-scrollbar-thumb { background: var(--color-ink); border: 2px solid var(--color-paper); }
 ::-webkit-scrollbar-thumb:hover { background: var(--color-accent); }
+
+/* The privacy and imprint page. */
+.legal h2 {
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin-top: 1.5rem;
+}
+.legal .todo {
+  background: var(--color-warn);
+  padding: 0 0.25rem;
+}

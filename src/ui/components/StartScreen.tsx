@@ -65,7 +65,7 @@ export function StartScreen(p: StartScreenProps) {
               {p.drafting ? <LoaderCircle className="w-5 h-5 animate-spin" /> : <ArrowRight className="w-5 h-5" />}
               {p.drafting ? 'Drafting search and checklist…' : 'Draft my protocol'}
             </button>
-            <button type="button" className="text-sm underline" onClick={p.onManual}>
+            <button type="button" className="text-sm link" onClick={p.onManual}>
               or write it myself
             </button>
           </div>
@@ -104,7 +104,7 @@ export function StartScreen(p: StartScreenProps) {
             <ul className="card divide-y-2 divide-[var(--color-ink)]">
               {p.recent.slice(0, 5).map((r) => (
                 <li key={r.id}>
-                  <button className="w-full text-left px-3 py-2 hover:bg-[var(--color-surface)] flex flex-wrap gap-x-3 items-baseline" onClick={() => p.onOpenRun(r.id)}>
+                   <button className="w-full text-left px-3 py-2 hover-surface flex flex-wrap gap-x-3 items-baseline" onClick={() => p.onOpenRun(r.id)}>
                     <span className="font-medium flex-1 min-w-[12rem] truncate">{r.intent || 'Untitled run'}</span>
                     <span className="text-xs text-[var(--color-muted)]">
                       {r.include} include of {r.count} · {new Date(r.createdAt).toLocaleString()}
@@ -140,6 +140,11 @@ export function StartScreen(p: StartScreenProps) {
             </li>
           ))}
         </ol>
+
+        <footer className="text-xs text-[var(--color-muted)] flex gap-4 justify-center pt-4">
+          <a className="link" href="/legal.html#privacy">Privacy</a>
+          <a className="link" href="/legal.html#imprint">Imprint</a>
+        </footer>
       </div>
     </div>
   );

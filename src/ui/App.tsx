@@ -1,9 +1,10 @@
 import { Download, ExternalLink, FileJson, Link2, LoaderCircle, MessageSquareQuote, Play, Plus, Quote, Settings as SettingsIcon, Square } from 'lucide-react';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { buildGdsTerm, type DatasetResult, type Decision, draftProtocol, fitPlatt, loadDossier, normalizeGseList, plattProbability, type Protocol } from '../core';
-import omigatorLogo from '../assets/omigator-logo.png';
 import { CiteDialog, GITHUB_URL } from './components/CiteDialog';
 import { InsightsView } from './components/InsightsView';
+import { Logo } from './components/Logo';
 import { KeyPrompt } from './components/KeyPrompt';
 import { type InputMode, ProtocolPanel } from './components/ProtocolPanel';
 import { ResultRow } from './components/ResultRow';
@@ -25,11 +26,51 @@ const COST_PER_DATASET = 0.00004;
 type Tab = 'results' | 'insights' | 'log';
 type View = 'all' | Decision | 'failed' | 'audit';
 
+/**
+ * Navigation state. Every screen, tab and dialog is a history entry, so the browser's back button
+ * does what one expects; the run itself is addressed in the hash (#run=…, #s=…, #demo, #edit).
+ */
+interface Nav {
+  screen: 'start' | 'workspace';
+  tab: Tab;
+  dialog?: 'settings' | 'cite';
+}
+
+const TAB_PARAM: Record<Tab, string | undefined> = { results: undefined, insights: 'accuracy', log: 'log' };
+
+function hashParams(): URLSearchParams {
+  return new URLSearchParams(location.hash.slice(1));
+}
+
+function navFromUrl(): Nav {
+  const p = hashParams();
+  const tab = (Object.keys(TAB_PARAM) as Tab[]).find((t) => TAB_PARAM[t] && TAB_PARAM[t] === p.get('tab')) ?? 'results';
+  const workspace = ['run', 's', 'demo', 'edit'].some((k) => p.has(k));
+  return { screen: workspace ? 'workspace' : 'start', tab };
+}
+
+/** The run part of the hash: run=…, s=…, demo or edit. */
+function runHashFromUrl(): string {
+  const p = hashParams();
+  for (const k of ['run', 's']) if (p.get(k)) return `${k}=${p.get(k)}`;
+  return p.has('demo') ? 'demo' : '';
+}
+
+type Transition = { ready: Promise<void>; finished: Promise<void>; updateCallbackDone: Promise<void> };
+
+function withTransition(update: () => void) {
+  const doc = document as Document & { startViewTransition?: (cb: () => void) => Transition };
+  if (!doc.startViewTransition || matchMedia('(prefers-reduced-motion: reduce)').matches) return update();
+  const t = doc.startViewTransition(() => flushSync(update));
+  // A newer navigation skips the running animation; that is expected, not an error.
+  for (const p of [t.ready, t.finished, t.updateCallbackDone]) p.catch(() => undefined);
+}
+
 export default function App() {
   const [settings, setSettings] = useState<Settings>(loadSettings);
   const [keys, setKeys] = useState<Keys>(loadKeys);
   const [protocol, setProtocol] = useState<Protocol>(() => load('omigator.protocol.v2', EMPTY_PROTOCOL));
-  const [workspace, setWorkspace] = useState(() => protocol.criteria.length > 0);
+  const [workspace, setWorkspace] = useState(() => navFromUrl().screen === 'workspace');
   const [mode, setMode] = useState<InputMode>('search');
   const [retmax, setRetmax] = useState(200);
   const [gseText, setGseText] = useState('');
@@ -37,7 +78,7 @@ export default function App() {
   const [goldText, setGoldText] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [showCite, setShowCite] = useState(false);
-  const [tab, setTab] = useState<Tab>('results');
+  const [tab, setTab] = useState<Tab>(() => navFromUrl().tab);
   const [view, setView] = useState<View>('all');
   const [audit, setAudit] = useState<string[]>([]);
   const [filterText, setFilterText] = useState('');
@@ -56,42 +97,93 @@ export default function App() {
   const [labelHintSeen, setLabelHintSeen] = useState(() => load('omigator.labelHint', { seen: false }).seen);
   const loadingDossiers = useRef(new Set<string>());
 
-  const setHash = (hash: string) => history.replaceState(null, '', hash ? `#${hash}` : `${location.pathname}${location.search}`);
-  const showRun = (data: Parameters<typeof loadRun>[0]) => {
+  const navRef = useRef<Nav>(navFromUrl());
+  const runHashRef = useRef(runHashFromUrl());
+  const runIdRef = useRef<string | undefined>(undefined);
+  runIdRef.current = runId;
+
+  const urlFor = (n: Nav) => {
+    if (n.screen === 'start') return `${location.pathname}${location.search}`;
+    const parts = [runHashRef.current || 'edit'];
+    if (TAB_PARAM[n.tab]) parts.push(`tab=${TAB_PARAM[n.tab]}`);
+    return `#${parts.join('&')}`;
+  };
+  const applyNav = (n: Nav) => {
+    navRef.current = n;
+    setWorkspace(n.screen === 'workspace');
+    setTab(n.tab);
+    setShowSettings(n.dialog === 'settings');
+    setShowCite(n.dialog === 'cite');
+  };
+  const navigate = (patch: Partial<Nav>, how: 'push' | 'replace' = 'push') => {
+    const n: Nav = { ...navRef.current, dialog: undefined, ...patch };
+    history[how === 'push' ? 'pushState' : 'replaceState']({ omigator: n }, '', urlFor(n));
+    withTransition(() => applyNav(n));
+  };
+  /** Points the address bar at the current run without adding a history entry. */
+  const setRunHash = (h: string) => {
+    runHashRef.current = h;
+    history.replaceState({ omigator: navRef.current }, '', urlFor(navRef.current));
+  };
+  const openSettings = () => navigate({ dialog: 'settings' });
+  const closeDialog = () => (history.state?.omigator?.dialog ? history.back() : navigate({ dialog: undefined }, 'replace'));
+
+  const showRun = (data: Parameters<typeof loadRun>[0], runHash: string, how: 'push' | 'replace') => {
     setProtocol(data.protocol);
     setMode(data.input.mode);
     if (data.input.mode === 'search') setRetmax(data.input.retmax);
     else setGseText(data.input.gses.join('\n'));
-    setWorkspace(true);
-    setTab('results');
     setView('all');
     setExpanded(new Set());
     loadRun(data);
+    runHashRef.current = runHash;
+    navigate({ screen: 'workspace', tab: how === 'replace' ? navRef.current.tab : 'results' }, how);
   };
 
-  // Open what the URL points to: a shared run (#s=…) or a run saved in this browser (#run=…).
+  const openSavedRun = async (id: string, how: 'push' | 'replace') => {
+    const run = await fetchRun(id);
+    if (!run) {
+      setNotice('This run is not saved in this browser any more.');
+      return;
+    }
+    setRunId(id);
+    showRun({ ...run, message: `Saved run from ${(run.manifest?.createdAt ?? '').slice(0, 10)}`, source: 'saved' }, `run=${id}`, how);
+  };
+
+  const openSharedRun = (encoded: string, how: 'push' | 'replace') => {
+    setNotice('Opening shared run…');
+    openShared(encoded, makeNcbi(keys, settings))
+      .then((run) => {
+        setLabels((l) => ({ ...run.labels, ...l }));
+        setRunId(undefined);
+        showRun({ ...run, message: `Shared run from ${run.manifest.createdAt.slice(0, 10)}`, source: 'shared' }, `s=${encoded}`, how);
+        setNotice(undefined);
+      })
+      .catch((err) => setNotice(`Could not open this link: ${(err as Error).message}`));
+  };
+
+  /** Shows whatever run the address points to, unless it is already on screen. */
+  const openFromUrl = (how: 'push' | 'replace') => {
+    const p = hashParams();
+    if (p.get('run') && p.get('run') !== runIdRef.current) openSavedRun(p.get('run')!, how);
+    else if (p.get('s') && `s=${p.get('s')}` !== runHashRef.current) openSharedRun(p.get('s')!, how);
+    else if (p.has('demo') && !state.demo) openDemo();
+  };
+
   useEffect(() => {
     listRuns().then(setRecent);
-    const params = new URLSearchParams(location.hash.slice(1));
-    const shared = params.get('s');
-    const saved = params.get('run');
-    if (shared) {
-      setWorkspace(true);
-      setNotice('Opening shared run…');
-      openShared(shared, makeNcbi(keys, settings))
-        .then((run) => {
-          setLabels((l) => ({ ...run.labels, ...l }));
-          showRun({ ...run, message: `Shared run from ${run.manifest.createdAt.slice(0, 10)}`, source: 'shared' });
-          setNotice(undefined);
-        })
-        .catch((err) => setNotice(`Could not open this link: ${(err as Error).message}`));
-    } else if (saved) {
-      fetchRun(saved).then((run) => {
-        if (!run) return setHash('');
-        setRunId(saved);
-        showRun({ ...run, message: `Saved run from ${(run.manifest?.createdAt ?? '').slice(0, 10)}`, source: 'saved' });
-      });
-    }
+    history.replaceState({ omigator: navRef.current }, '', location.href);
+    runHashRef.current = '';
+    openFromUrl('replace');
+    const onPop = (e: PopStateEvent) => {
+      const n: Nav = e.state?.omigator ?? navFromUrl();
+      const target = runHashFromUrl();
+      if (target && target !== runHashRef.current) openFromUrl('replace');
+      runHashRef.current = target || runHashRef.current;
+      withTransition(() => applyNav(n));
+    };
+    addEventListener('popstate', onPop);
+    return () => removeEventListener('popstate', onPop);
   }, []);
 
   // Every finished run is saved in this browser and its address put in the URL, so a reload or a
@@ -103,7 +195,7 @@ export default function App() {
     if (!runId) setRunId(id);
     const timer = setTimeout(() => {
       storeRun(id, { results: state.results, protocol: state.protocol!, input: state.input!, manifest: state.manifest }).then(() => listRuns().then(setRecent));
-      setHash(`run=${id}`);
+      if (!runHashRef.current.startsWith('s=')) setRunHash(`run=${id}`);
     }, 600);
     return () => clearTimeout(timer);
   }, [state.status, state.results, state.source]);
@@ -187,7 +279,7 @@ export default function App() {
       const { protocol: drafted } = await draftProtocol(protocol.intent, ep, model);
       setProtocol({ ...drafted, filters: { ...protocol.filters, ...drafted.filters } });
       setMode('search');
-      setWorkspace(true);
+      if (!workspace) startFresh();
     } catch (err) {
       setDraftError((err as Error).message);
     } finally {
@@ -198,40 +290,52 @@ export default function App() {
   const screen = (withKeys: Keys = keys) => {
     if (blocker) return;
     setRunId(undefined);
-    setHash('');
-    setTab('results');
+    runHashRef.current = '';
+    navigate({ tab: 'results' }, 'replace');
     setView('all');
     setExpanded(new Set());
     start(protocol, mode === 'search' ? { mode, retmax } : { mode, gses: normalizeGseList(gseText) }, makeNcbi(withKeys, settings), makeScorer(withKeys, settings));
   };
 
-  const openDemo = async () => {
+  async function openDemo() {
     try {
       const rec = await loadDemo();
       setProtocol(rec.protocol);
       setMode('search');
       setRetmax(rec.retmax);
       setGoldText(rec.gold.join(', '));
-      setWorkspace(true);
-      setTab('results');
+      setRunId(undefined);
+      runHashRef.current = 'demo';
+      navigate({ screen: 'workspace', tab: 'results' }, hashParams().has('demo') ? 'replace' : 'push');
       setView('all');
       setExpanded(new Set());
       startDemo(rec);
     } catch (err) {
       alert((err as Error).message);
     }
-  };
+  }
 
-  const newRequest = () => {
+  /** Clears the run on screen; the previous one stays reachable with the back button. */
+  function clearRun() {
     reset();
     setRunId(undefined);
-    setHash('');
+    runHashRef.current = '';
     setNotice(undefined);
-    setProtocol(EMPTY_PROTOCOL);
-    setGseText('');
     setGoldText('');
     setAudit([]);
-    setWorkspace(false);
+  }
+
+  /** From the start screen into an empty workspace for the protocol just chosen or drafted. */
+  function startFresh() {
+    clearRun();
+    navigate({ screen: 'workspace', tab: 'results' });
+  }
+
+  const newRequest = () => {
+    clearRun();
+    setProtocol(EMPTY_PROTOCOL);
+    setGseText('');
+    navigate({ screen: 'start', tab: 'results' });
   };
 
   const shownProtocol = state.protocol ?? protocol;
@@ -279,7 +383,7 @@ export default function App() {
     }
     setAudit(pool.slice(0, 10));
     setView('audit');
-    setTab('results');
+    if (tab !== 'results') navigate({ tab: 'results' });
   };
 
   const canExplain = Boolean(demo) || chatReady;
@@ -304,10 +408,10 @@ export default function App() {
       </button>
     </div>
   ) : !scorerReady && needsOpenRouterKey ? (
-    <KeyPrompt reason="Screening uses a decision model." remember={settings.rememberKeys} onSave={(k, r) => screen(saveOpenRouterKey(k, r))} onOpenSettings={() => setShowSettings(true)} />
+    <KeyPrompt reason="Screening uses a decision model." remember={settings.rememberKeys} onSave={(k, r) => screen(saveOpenRouterKey(k, r))} onOpenSettings={openSettings} />
   ) : (
     <div className="space-y-1.5">
-      <button className="brutal-button button-primary w-full py-3 text-base" onClick={() => (scorerReady ? screen() : setShowSettings(true))} disabled={Boolean(blocker)}>
+      <button className="brutal-button button-primary w-full py-3 text-base" onClick={() => (scorerReady ? screen() : openSettings())} disabled={Boolean(blocker)}>
         <Play className="w-4 h-4 fill-current" />
         {results.length ? 'Screen again' : `Screen ${toScreen ? `${toScreen} ` : ''}datasets`}
       </button>
@@ -322,12 +426,12 @@ export default function App() {
 
   return (
     <div className="h-screen flex flex-col bg-[var(--color-paper)]">
-      {showSettings && <SettingsDialog settings={settings} keys={keys} onSettings={setSettings} onKeys={setKeys} onClose={() => setShowSettings(false)} />}
-      {showCite && <CiteDialog version={VERSION} onClose={() => setShowCite(false)} />}
+      {showSettings && <SettingsDialog settings={settings} keys={keys} onSettings={setSettings} onKeys={setKeys} onClose={closeDialog} />}
+      {showCite && <CiteDialog version={VERSION} onClose={closeDialog} />}
 
-      <header className="flex items-center gap-3 px-4 py-2 brutal-border-b bg-[var(--color-accent)] shrink-0">
-        <button className="flex items-center gap-2" onClick={newRequest} title="Start a new request">
-          <img src={omigatorLogo} alt="" className="h-10 w-auto" />
+      <header className="site-header flex items-center gap-3 px-4 py-2 brutal-border-b bg-[var(--color-accent)] shrink-0">
+        <button className="logo-home flex items-center gap-2" onClick={() => navigate({ screen: 'start' })} title="Home">
+          <Logo active={running} className="h-10 w-auto" />
           <span className="font-display text-xl uppercase leading-none">Omigator</span>
         </button>
         <span className="text-xs mono hidden sm:inline">v{VERSION}</span>
@@ -337,16 +441,20 @@ export default function App() {
             <Plus className="w-4 h-4" /> New request
           </button>
         )}
-        <button className="brutal-button px-3 py-1.5 text-sm bg-white" onClick={() => setShowSettings(true)}>
+        <button className="brutal-button px-3 py-1.5 text-sm bg-white" onClick={openSettings}>
           <SettingsIcon className="w-4 h-4" /> Settings
           <span className={`w-2 h-2 rounded-full ${scorerReady ? 'bg-green-600' : 'bg-red-500'}`} title={scorerReady ? 'Ready' : 'Key missing'} />
         </button>
-        <button className="brutal-button px-3 py-1.5 text-sm bg-white hidden md:inline-flex" onClick={() => setShowCite(true)}>
+        <button className="brutal-button px-3 py-1.5 text-sm bg-white hidden md:inline-flex" onClick={() => navigate({ dialog: 'cite' })}>
           <Quote className="w-4 h-4" /> Cite
         </button>
         <a className="brutal-button px-3 py-1.5 text-sm bg-white hidden md:inline-flex" href={GITHUB_URL} target="_blank" rel="noreferrer">
           Code <ExternalLink className="w-3.5 h-3.5" />
         </a>
+        <span className="hidden lg:flex flex-col text-xs leading-tight">
+          <a className="link" href="/legal.html#privacy">Privacy</a>
+          <a className="link" href="/legal.html#imprint">Imprint</a>
+        </span>
       </header>
 
       {!workspace ? (
@@ -366,19 +474,13 @@ export default function App() {
             onPreset={(p) => {
               setProtocol(p);
               setMode('search');
-              setWorkspace(true);
+              startFresh();
             }}
-            onManual={() => setWorkspace(true)}
+            onManual={startFresh}
             onDemo={openDemo}
-            onOpenSettings={() => setShowSettings(true)}
+            onOpenSettings={openSettings}
             recent={recent}
-            onOpenRun={async (id) => {
-              const run = await fetchRun(id);
-              if (!run) return;
-              setRunId(id);
-              setHash(`run=${id}`);
-              showRun({ ...run, message: `Saved run from ${(run.manifest?.createdAt ?? '').slice(0, 10)}`, source: 'saved' });
-            }}
+            onOpenRun={(id) => openSavedRun(id, 'push')}
           />
         </main>
       ) : (
@@ -415,7 +517,7 @@ export default function App() {
                     ['log', 'Log'],
                   ] as [Tab, string][]
                 ).map(([t, label], i) => (
-                  <button key={t} className={`px-3 py-1 ${i ? 'border-l-2 border-[var(--color-ink)]' : ''} ${tab === t ? 'bg-ink text-white' : 'hover:bg-[var(--color-surface)]'}`} onClick={() => setTab(t)}>
+                  <button key={t} className={`px-3 py-1 ${i ? 'border-l-2 border-[var(--color-ink)]' : ''} ${tab === t ? 'bg-ink text-white' : 'hover-surface'}`} onClick={() => tab !== t && navigate({ tab: t })}>
                     {label}
                   </button>
                 ))}
@@ -455,7 +557,7 @@ export default function App() {
             {notice && (
               <div className="px-4 py-2 brutal-border-b bg-[var(--color-paper)] text-sm shrink-0 flex items-start gap-3">
                 <p className="flex-1">{notice}</p>
-                <button className="underline" onClick={() => setNotice(undefined)}>Dismiss</button>
+                <button className="link" onClick={() => setNotice(undefined)}>Dismiss</button>
               </div>
             )}
 
@@ -476,7 +578,8 @@ export default function App() {
                       .map((v) => (
                         <button
                           key={v}
-                          className={`px-2.5 py-1 text-sm font-semibold brutal-border ${view === v ? 'bg-ink text-white' : v in DECISION_STYLE ? DECISION_STYLE[v as Decision] : 'bg-[var(--color-paper)]'}`}
+                          className={`brutal-button px-2.5 py-1 text-sm ${view === v ? 'bg-ink text-white' : v in DECISION_STYLE ? DECISION_STYLE[v as Decision] : ''}`}
+                          aria-pressed={view === v}
                           onClick={() => setView(v)}
                         >
                           {v === 'audit' ? 'Random sample' : v[0].toUpperCase() + v.slice(1)} <span className="mono">{counts[v]}</span>
@@ -505,7 +608,7 @@ export default function App() {
                       setLabelHintSeen(true);
                       save('omigator.labelHint', { seen: true });
                     }}
-                    onDetails={() => setTab('insights')}
+                    onDetails={() => navigate({ tab: 'insights' })}
                     onAudit={startAudit}
                   />
                   {view === 'audit' && (
@@ -588,7 +691,7 @@ function LabelBar({
           to read. Marks are saved with the run and go into exports and share links.
         </p>
         <button className="brutal-button px-2 py-1 text-sm" onClick={onAudit}>Mark 10 random ones</button>
-        <button className="underline text-sm" onClick={onHintSeen}>Got it</button>
+        <button className="link text-sm" onClick={onHintSeen}>Got it</button>
       </div>
     );
   }
@@ -607,7 +710,7 @@ function LabelBar({
         {calibrated ? 'P(relevant) per dataset is now calibrated to your marks.' : 'Mark at least 2 relevant and 2 not relevant to calibrate.'}
       </span>
       <span className="flex-1" />
-      <button className="underline" onClick={onDetails}>Details</button>
+      <button className="link" onClick={onDetails}>Details</button>
     </div>
   );
 }
