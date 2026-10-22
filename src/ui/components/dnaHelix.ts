@@ -1,13 +1,14 @@
 /**
- * Drawing of the progress helix (CSS pixels): a double strand that is a flat ladder at the start
- * and winds up into a helix as the run progresses. Its height is set where it is used (DnaProgress
- * in App.tsx); the look is set by the constants below.
+ * Drawing of the progress helix (CSS pixels). It lies on a line (the toolbar's bottom edge): a
+ * faint double helix turning about that line, whose two strands close up into one strong line
+ * where the work is done. Its height is set where it is used (DnaProgress in App.tsx); the look
+ * is set by the constants below.
  *
- * The twist per pixel is 2π/turn where the work is done and 0 ahead of it, with a soft front of FRONT
- * pixels. Strand angles add up the twist from the right: the ladder ahead stays still, and every
- * step of progress turns the wound part a little further, so the strand visibly winds on. On top
- * of that, `spin` turns the whole molecule about its axis, the flat ladder with it.
- * A strand at angle α lies at y = mid − amp·cos α and faces the viewer where sin α > 0.
+ * A strand at angle α = 2π·x/turn + spin lies at y = mid − swing·cos α and faces the viewer where
+ * sin α > 0. Where the work is done the swing is 0, with a soft front of FRONT pixels. `presence`
+ * spreads the strands out of the line when a run starts and lays them back into it at the end;
+ * at 0 nothing is drawn, and just before that everything is a line of LINE_REST width, the same
+ * as the edge it lies on.
  */
 
 // ---- Look (sizes relative to the bar's height unless noted) ----
@@ -16,19 +17,22 @@ const TURN = 4.2;
 /** Swing of the strands from the middle (0.5 reaches the edges). */
 const SWING = 0.34;
 /** Width of a strand facing the viewer; it narrows to EDGE_ON of that where seen edge-on. */
-const STRAND = 0.14;
+const STRAND = 0.12;
 const EDGE_ON = 0.3;
 /** Gap a front strand leaves around itself where it crosses one behind. */
 const GAP = 0.08;
 /** Width of a base pair, relative to a strand. */
 const PAIR = 0.45;
-/** Base pairs per turn; the ladder keeps them at the same spacing. */
+/** Base pairs per turn. */
 const PAIRS = 6;
-/** Width of the soft front between helix and ladder (pixels). */
+/** Width of the soft front where the strands close up (pixels). */
 const FRONT = 60;
-/** Opacity of the part done and of the part still ahead. */
+/** Width of the line the strands close up into, and of the edge it lies on (pixels). */
+const LINE = 4;
+const LINE_REST = 2;
+/** Opacity of the part done and of the helix still ahead. */
 const DONE = 1;
-const AHEAD = 0.08;
+const AHEAD = 0.3;
 
 type Pt = { x: number; y: number; w: number };
 
@@ -62,73 +66,64 @@ function ribbon(ctx: CanvasRenderingContext2D, pts: Pt[]) {
 }
 
 /**
- * Draws the helix at `progress` (0–1), turned by `spin` (radians), into a cleared context of
- * `width` × `height` CSS pixels.
+ * Draws the helix at `progress` (0–1), turned by `spin` (radians), spread out by `presence` (0–1),
+ * into a cleared context of `width` × `height` CSS pixels.
  */
-export function drawDna(ctx: CanvasRenderingContext2D, width: number, height: number, progress: number, spin: number, ink: string) {
+export function drawDna(ctx: CanvasRenderingContext2D, width: number, height: number, progress: number, spin: number, presence: number, ink: string) {
+  if (presence <= 0) return;
   const mid = height / 2;
-  const amp = height * SWING;
+  const swing = height * SWING * presence;
   const strandWidth = Math.max(1.2, height * STRAND);
   const gap = Math.max(0.8, height * GAP);
-  const period = height * TURN;
-  const K = (2 * Math.PI) / period;
+  const K = (2 * Math.PI) / (height * TURN);
+  const line = LINE_REST + (LINE - LINE_REST) * presence;
   // The front moves from just before the left edge to just past the right one.
   const front = -FRONT / 2 + progress * (width + FRONT);
-  const step = 1;
-  const n = Math.ceil(width / step) + 1;
-  const xs = new Float64Array(n);
-  const angle = new Float64Array(n);
-  const wound = new Float64Array(n);
-  let acc = 0;
-  for (let i = n - 1; i >= 0; i--) {
-    const x = Math.min(width, i * step);
-    xs[i] = x;
-    wound[i] = 1 - smoothstep(front - FRONT / 2, front + FRONT / 2, x);
-    angle[i] = acc + spin;
-    acc += K * wound[i] * step;
-  }
+  const closedAt = (x: number) => 1 - smoothstep(front - FRONT / 2, front + FRONT / 2, x);
+  const n = Math.ceil(width) + 1;
 
-  const front_: Pt[][] = [];
-  const back: Pt[][] = [];
+  const fronts: Pt[][] = [];
+  const backs: Pt[][] = [];
   for (const offset of [0, Math.PI]) {
     let run: Pt[] = [];
     let runFront: boolean | undefined;
     for (let i = 0; i < n; i++) {
-      const a = angle[i] + offset;
+      const x = Math.min(width, i);
+      const closed = closedAt(x);
+      const a = K * x + spin + offset;
       const facing = Math.sin(a);
-      // The flat ladder has no front and back; only a strand that is wound can pass behind.
-      const isFront = facing >= 0 || wound[i] < 0.3;
-      // Edge-on, a wound strand narrows; the flat ladder keeps its full width.
-      const helixWidth = EDGE_ON + (1 - EDGE_ON) * Math.abs(facing) ** 0.7;
-      const w = strandWidth * (1 - wound[i] + wound[i] * helixWidth);
-      const p = { x: xs[i], y: mid - amp * Math.cos(a), w };
+      const isFront = facing >= 0;
+      // Edge-on a strand narrows; closing up, both strands become the line.
+      const open = strandWidth * (EDGE_ON + (1 - EDGE_ON) * Math.abs(facing) ** 0.7);
+      const p = { x, y: mid - swing * (1 - closed) * Math.cos(a), w: open + (line - open) * closed };
       if (isFront !== runFront && run.length) {
         run.push(p);
-        (runFront ? front_ : back).push(run);
+        (runFront ? fronts : backs).push(run);
         run = [];
       }
       runFront = isFront;
       run.push(p);
     }
-    if (run.length > 1) (runFront ? front_ : back).push(run);
+    if (run.length > 1) (runFront ? fronts : backs).push(run);
   }
 
   ctx.save();
   ctx.fillStyle = ink;
   ctx.strokeStyle = ink;
   // Behind: back halves of the strands and the base pairs.
-  for (const r of back) {
+  for (const r of backs) {
     ribbon(ctx, r);
     ctx.fill();
   }
   ctx.lineWidth = Math.max(0.8, strandWidth * PAIR);
-  ctx.lineCap = 'round';
-  const spacing = period / PAIRS;
-  for (let x = spacing / 2; x < width; x += spacing) {
-    const i = Math.round(x / step);
-    const spread = Math.abs(Math.cos(angle[i]));
+  const spacing = (height * TURN) / PAIRS;
+  // Base pairs sit at fixed points of the molecule and turn with it.
+  const shift = (((spin / K) % spacing) + spacing) % spacing;
+  for (let x = spacing / 2 - shift; x < width; x += spacing) {
+    if (x < 0) continue;
+    const spread = Math.abs(Math.cos(K * x + spin));
     // Near a crossing a pair is short and hidden behind the front strand; let it fade out there.
-    const half = (amp * spread - strandWidth * 0.6) * smoothstep(0.3, 0.6, spread);
+    const half = (swing * (1 - closedAt(x)) * spread - strandWidth * 0.6) * smoothstep(0.3, 0.6, spread);
     if (half < 1) continue;
     ctx.beginPath();
     ctx.moveTo(x, mid - half);
@@ -139,8 +134,7 @@ export function drawDna(ctx: CanvasRenderingContext2D, width: number, height: nu
   // sides only, so a strand that passes from behind to the front stays in one piece.
   ctx.lineWidth = 2 * gap;
   ctx.lineJoin = 'round';
-  ctx.lineCap = 'butt';
-  for (const r of front_) {
+  for (const r of fronts) {
     ctx.globalCompositeOperation = 'destination-out';
     for (const side of sides(r)) {
       ctx.beginPath();
@@ -151,11 +145,13 @@ export function drawDna(ctx: CanvasRenderingContext2D, width: number, height: nu
     ribbon(ctx, r);
     ctx.fill();
   }
-  // The part not done yet stays faint.
+  // Where the strands have closed up they are one solid line (gaps cut there are filled again).
+  ctx.fillRect(0, mid - line / 2, Math.max(0, front - FRONT / 2), line);
+  // Ahead the helix stays faint; laid back into the line at the end, it is solid again.
   ctx.globalCompositeOperation = 'destination-in';
   const fade = ctx.createLinearGradient(front - FRONT / 2, 0, front + FRONT / 2, 0);
   fade.addColorStop(0, `rgba(0,0,0,${DONE})`);
-  fade.addColorStop(1, `rgba(0,0,0,${AHEAD})`);
+  fade.addColorStop(1, `rgba(0,0,0,${AHEAD + (DONE - AHEAD) * (1 - presence)})`);
   ctx.fillStyle = fade;
   ctx.fillRect(0, 0, width, height);
   ctx.restore();

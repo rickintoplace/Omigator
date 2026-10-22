@@ -1,17 +1,20 @@
 import { useEffect, useRef } from 'react';
 import { drawDna } from './dnaHelix';
 
-/** Time constant with which the drawing follows the progress, so each step winds on smoothly. */
-const FOLLOW_MS = 220;
-/** One turn of the molecule about its axis while active. */
-const SPIN_MS = 3200;
-/** Time constant for the turning to start and to die down. */
-const EASE_MS = 500;
+/** Time constant with which the drawing follows the progress, so each step closes up smoothly. */
+const FOLLOW_MS = 1200;
+/** Time constant for the line to close up the rest once the run is over. */
+const FINISH_MS = 150;
+/** One turn of the molecule about its axis. */
+const SPIN_MS = 1400;
+/** Time constant for the strands to spread out of the line at the start and to lie back at the end. */
+const EASE_MS = 350;
 
 /**
- * Progress of a run as a double strand that winds up into a helix while turning (see dnaHelix.ts).
- * It always takes its place, so nothing shifts when a run starts or ends. While inactive it shows
- * the finished helix, still and faint; a new run unwinds it to the ladder and winds it up again.
+ * Progress of a run as a double helix lying on a line (see dnaHelix.ts). Laid over the toolbar's
+ * bottom edge, it takes no room: when a run starts, the strands spread out of the edge and turn;
+ * as datasets are done they close up into a strong line from the left; at the end the line (or
+ * whatever is still open, if the run was stopped) lies back into the edge and is gone.
  */
 export function DnaProgress({ progress, active, className = '' }: { progress: number; active: boolean; className?: string }) {
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -19,7 +22,6 @@ export function DnaProgress({ progress, active, className = '' }: { progress: nu
   target.current = progress;
   const activeRef = useRef(active);
   activeRef.current = active;
-  const shown = useRef(progress);
   const frame = useRef(0);
   const size = useRef({ width: 0, height: 0 });
   const kick = useRef<() => void>(() => {});
@@ -30,28 +32,31 @@ export function DnaProgress({ progress, active, className = '' }: { progress: nu
     if (!el || !ctx) return;
     const ink = getComputedStyle(el).color;
     const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let shown = 0;
     let spin = 0;
-    let speed = 0;
+    let presence = 0;
     const render = () => {
       const { width, height } = size.current;
       const dpr = devicePixelRatio || 1;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, width, height);
-      drawDna(ctx, width, height, shown.current, spin, ink);
+      drawDna(ctx, width, height, shown, spin, presence, ink);
     };
     let last = performance.now();
     const tick = (now: number) => {
       const dt = Math.min(now - last, 100);
       last = now;
-      const diff = target.current - shown.current;
-      shown.current = Math.abs(diff) < 1e-4 || still ? target.current : shown.current + diff * (1 - Math.exp(-dt / FOLLOW_MS));
-      const goal = activeRef.current && !still ? 1 : 0;
-      speed += (goal - speed) * (1 - Math.exp(-dt / EASE_MS));
-      if (!goal && speed < 0.01) speed = 0;
-      // Turning this way, the windings run from the front towards the start.
-      spin = (spin - speed * (dt / SPIN_MS) * 2 * Math.PI) % (2 * Math.PI);
+      const ease = (from: number, to: number, ms: number) => (still || Math.abs(to - from) < 1e-3 ? to : from + (to - from) * (1 - Math.exp(-dt / ms)));
+      if (activeRef.current && presence === 0) shown = target.current; // a new run starts from its own progress
+      // Once the run is over, the line closes up quickly instead of following at its usual pace.
+      shown = ease(shown, target.current, activeRef.current ? FOLLOW_MS : FINISH_MS);
+      // At the end the line first catches up with the progress, then lies back into the edge.
+      const settled = Math.abs(shown - target.current) < 1e-3;
+      presence = ease(presence, activeRef.current ? 1 : settled ? 0 : presence, EASE_MS);
+      if (!activeRef.current && presence < 0.01) presence = 0; // by now a line as thin as the edge
+      if (!still) spin = (spin + presence * (dt / SPIN_MS) * 2 * Math.PI) % (2 * Math.PI);
       render();
-      frame.current = shown.current === target.current && !speed && !goal ? 0 : requestAnimationFrame(tick);
+      frame.current = !activeRef.current && presence === 0 ? 0 : requestAnimationFrame(tick);
     };
     kick.current = () => {
       if (frame.current) return;
@@ -67,6 +72,7 @@ export function DnaProgress({ progress, active, className = '' }: { progress: nu
       render();
     });
     observer.observe(el);
+    if (activeRef.current) kick.current();
     return () => {
       observer.disconnect();
       cancelAnimationFrame(frame.current);
@@ -79,7 +85,7 @@ export function DnaProgress({ progress, active, className = '' }: { progress: nu
   return (
     <canvas
       ref={canvas}
-      className={`block w-full transition-opacity duration-700 ${active ? '' : 'opacity-40'} ${className}`}
+      className={`block pointer-events-none ${className}`}
       role="progressbar"
       aria-label="Screening progress"
       aria-valuemin={0}

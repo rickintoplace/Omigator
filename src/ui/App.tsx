@@ -521,7 +521,7 @@ export default function App() {
           </aside>
 
           <main className="flex-1 min-w-0 min-h-0 flex flex-col">
-            <div className="brutal-border-b px-4 py-2 bg-[var(--color-paper)] flex flex-wrap items-center gap-2 shrink-0">
+            <div className="relative brutal-border-b px-4 py-2 bg-[var(--color-paper)] flex flex-wrap items-center gap-2 shrink-0">
               <nav className="flex brutal-border text-sm font-semibold">
                 {(
                   [
@@ -550,9 +550,8 @@ export default function App() {
               <button className="brutal-button px-2 py-1 text-sm" onClick={() => exportJson(results, state.manifest, labels)} disabled={!state.manifest} title="Protocol, models, thresholds and all per-dataset results">
                 <FileJson className="w-4 h-4" /> Run file
               </button>
-            </div>
-            <div className="shrink-0 brutal-border-b bg-[var(--color-surface)]">
-              <DnaProgress progress={running ? (state.total ? state.done / state.total : 0) : 1} active={running} className="h-3.5" />
+              {/* Lies on the bottom edge (2px): 16px high, its middle on the edge's middle. */}
+              <DnaProgress progress={state.total ? state.done / state.total : 0} active={running} className="absolute left-0 w-full -bottom-[9px] h-4 z-10" />
             </div>
             {demo && (
               <div className="px-4 py-2 brutal-border-b bg-[var(--color-warn)] text-sm shrink-0">
