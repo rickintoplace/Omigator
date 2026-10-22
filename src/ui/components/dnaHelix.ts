@@ -5,13 +5,14 @@
  *
  * The twist per pixel is 2π/turn where the work is done and 0 ahead of it, with a soft front of FRONT
  * pixels. Strand angles add up the twist from the right: the ladder ahead stays still, and every
- * step of progress turns the wound part a little further, so the strand visibly winds on.
+ * step of progress turns the wound part a little further, so the strand visibly winds on. On top
+ * of that, `spin` turns the whole molecule about its axis, the flat ladder with it.
  * A strand at angle α lies at y = mid − amp·cos α and faces the viewer where sin α > 0.
  */
 
 // ---- Look (sizes relative to the bar's height unless noted) ----
 /** Length of one turn of the helix. */
-const TURN = 3.2;
+const TURN = 4.2;
 /** Swing of the strands from the middle (0.5 reaches the edges). */
 const SWING = 0.34;
 /** Width of a strand facing the viewer; it narrows to EDGE_ON of that where seen edge-on. */
@@ -26,8 +27,8 @@ const PAIRS = 6;
 /** Width of the soft front between helix and ladder (pixels). */
 const FRONT = 60;
 /** Opacity of the part done and of the part still ahead. */
-const DONE = 0.7;
-const AHEAD = 0.18;
+const DONE = 1;
+const AHEAD = 0.08;
 
 type Pt = { x: number; y: number; w: number };
 
@@ -60,8 +61,11 @@ function ribbon(ctx: CanvasRenderingContext2D, pts: Pt[]) {
   ctx.closePath();
 }
 
-/** Draws the helix at `progress` (0–1) into a cleared context of `width` × `height` CSS pixels. */
-export function drawDna(ctx: CanvasRenderingContext2D, width: number, height: number, progress: number, ink: string) {
+/**
+ * Draws the helix at `progress` (0–1), turned by `spin` (radians), into a cleared context of
+ * `width` × `height` CSS pixels.
+ */
+export function drawDna(ctx: CanvasRenderingContext2D, width: number, height: number, progress: number, spin: number, ink: string) {
   const mid = height / 2;
   const amp = height * SWING;
   const strandWidth = Math.max(1.2, height * STRAND);
@@ -80,7 +84,7 @@ export function drawDna(ctx: CanvasRenderingContext2D, width: number, height: nu
     const x = Math.min(width, i * step);
     xs[i] = x;
     wound[i] = 1 - smoothstep(front - FRONT / 2, front + FRONT / 2, x);
-    angle[i] = acc;
+    angle[i] = acc + spin;
     acc += K * wound[i] * step;
   }
 

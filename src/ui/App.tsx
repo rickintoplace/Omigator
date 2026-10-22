@@ -551,9 +551,9 @@ export default function App() {
                 <FileJson className="w-4 h-4" /> Run file
               </button>
             </div>
-            {running && state.total > 0 && (
-              <DnaProgress done={state.done} total={state.total} className="h-3 shrink-0 brutal-border-b bg-[var(--color-surface)]" />
-            )}
+            <div className="shrink-0 brutal-border-b bg-[var(--color-surface)]">
+              <DnaProgress progress={running ? (state.total ? state.done / state.total : 0) : 1} active={running} className="h-3.5" />
+            </div>
             {demo && (
               <div className="px-4 py-2 brutal-border-b bg-[var(--color-warn)] text-sm shrink-0">
                 <b>Demo:</b> {demo.note}
