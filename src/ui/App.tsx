@@ -402,7 +402,6 @@ export default function App() {
     </button>
   ) : demo ? (
     <div className="text-sm space-y-2">
-      <p>This is a recorded demo; the checklist on the left is the one the run used.</p>
       <button className="brutal-button button-primary w-full py-2.5" onClick={newRequest}>
         <Plus className="w-4 h-4" /> Start your own request
       </button>

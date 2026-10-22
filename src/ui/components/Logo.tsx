@@ -35,6 +35,10 @@ const BACK_WIDTH = 26;
 const MIN_WIDTH = 3;
 const RUNG_WIDTH = 11;
 const GAP = 8;
+/** The helix fades in over this x range next to the head, and the head's outline is this soft. */
+const FADE_FROM = 455;
+const FADE_TO = 605;
+const SOFT_EDGE = 11;
 /** One full turn. */
 const TURN_MS = 4800;
 
@@ -157,13 +161,25 @@ export function Logo({ active = false, className = '' }: { active?: boolean; cla
           <rect x="300" y="300" width="800" height="380" fill="white" />
           <path ref={frontMaskRef} d={REST.front} fill="black" stroke="black" strokeWidth={2 * GAP} strokeLinejoin="round" />
         </mask>
-        {/* The head hides the start of the helix, with the same small gap as in the artwork. */}
+        {/*
+          The helix grows out of the head: it fades in from FADE_FROM to FADE_TO, and the head's
+          silhouette (blurred) hides it softly where the two overlap.
+        */}
+        <linearGradient id="omigator-fade" gradientUnits="userSpaceOnUse" x1={FADE_FROM} y1="0" x2={FADE_TO} y2="0">
+          <stop offset="0" stopColor="black" />
+          <stop offset="1" stopColor="white" />
+        </linearGradient>
+        <filter id="omigator-soft" filterUnits="userSpaceOnUse" x="0" y="300" width="1100" height="380">
+          <feGaussianBlur stdDeviation={SOFT_EDGE} />
+        </filter>
         <mask id="omigator-behind-head" maskUnits="userSpaceOnUse" x="0" y="300" width="1100" height="380">
-          <rect x="0" y="300" width="1100" height="380" fill="white" />
-          <g transform={transform}>
-            {HEAD.map((d, i) => (
-              <path key={i} d={d} fill="black" stroke="black" strokeWidth={65} strokeLinejoin="round" />
-            ))}
+          <rect x="0" y="300" width="1100" height="380" fill="url(#omigator-fade)" />
+          <g filter="url(#omigator-soft)">
+            <g transform={transform}>
+              {HEAD.map((d, i) => (
+                <path key={i} d={d} fill="black" stroke="black" strokeWidth={65} strokeLinejoin="round" />
+              ))}
+            </g>
           </g>
         </mask>
         <clipPath id="omigator-helix-end">
