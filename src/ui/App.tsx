@@ -98,6 +98,11 @@ export default function App() {
   const loadingDossiers = useRef(new Set<string>());
 
   const navRef = useRef<Nav>(navFromUrl());
+  // Read inside the popstate handler, which is registered once.
+  const runningRef = useRef(false);
+  runningRef.current = running;
+  const stopRef = useRef(stop);
+  stopRef.current = stop;
   const runHashRef = useRef(runHashFromUrl());
   const runIdRef = useRef<string | undefined>(undefined);
   runIdRef.current = runId;
@@ -109,6 +114,8 @@ export default function App() {
     return `#${parts.join('&')}`;
   };
   const applyNav = (n: Nav) => {
+    // Leaving the workspace ends a run in progress; results so far are kept (and saved).
+    if (n.screen === 'start' && runningRef.current) stopRef.current();
     navRef.current = n;
     setWorkspace(n.screen === 'workspace');
     setTab(n.tab);

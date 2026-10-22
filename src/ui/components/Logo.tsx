@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import svgSource from '../../assets/omigator-logo.svg?raw';
 
 /**
- * The Omigator logo. At rest it is the original artwork. While a run is in progress it cross-fades
- * to a double helix drawn from the artwork's geometry, which turns so that its windings travel away
- * from the head; when the run ends the helix completes its turn and fades back to the artwork.
+ * The Omigator logo. At rest it is the original artwork. While a run is in progress the part of the
+ * helix away from the head cross-fades to a helix drawn from the artwork's geometry, which turns so
+ * that its windings travel away from the head; the part at the head stays still. When the run ends
+ * or is stopped, it fades straight back to the artwork.
  *
  * Each strand is y = CENTER ∓ AMP·cos(θ), θ = 2π(x − PEAK_X)/PERIOD + phase. A strand is in front
  * where it rises; back parts and base pairs get gaps where a front part crosses them.
@@ -35,10 +36,16 @@ const BACK_WIDTH = 26;
 const MIN_WIDTH = 3;
 const RUNG_WIDTH = 11;
 const GAP = 8;
-/** The helix fades in over this x range next to the head, and the head's outline is this soft. */
-const FADE_FROM = 455;
-const FADE_TO = 605;
+/** The head's outline (hiding the helix behind it) is this soft. */
 const SOFT_EDGE = 11;
+/**
+ * Next to the head the artwork's helix (with the neck plate) stays still while the drawn helix
+ * turns; the two cross-fade over this x range, so the head stays joined to the helix.
+ */
+const BLEND_FROM = 612;
+const BLEND_TO = 672;
+/** Matches the CSS opacity transition of .logo-layer. */
+const FADE_MS = 350;
 /** One full turn. */
 const TURN_MS = 4800;
 
@@ -131,21 +138,23 @@ export function Logo({ active = false, className = '' }: { active?: boolean; cla
       backRef.current?.setAttribute('d', h.back);
       rungsRef.current?.setAttribute('d', h.rungs);
     };
+    let stoppedAt = 0;
     const tick = (now: number) => {
-      const before = phase.current;
       // Decreasing phase moves the windings to the right, away from the head.
-      let next = before - ((now - last) / TURN_MS) * 2 * Math.PI;
+      phase.current = (phase.current - ((now - last) / TURN_MS) * 2 * Math.PI) % (2 * Math.PI);
       last = now;
-      // After the run, finish the current turn, then return to the artwork.
-      const stop = !activeRef.current && Math.floor(next / (2 * Math.PI)) < Math.floor(before / (2 * Math.PI));
-      if (stop) next = 0;
-      phase.current = next;
-      draw(next);
-      if (stop) {
-        frame.current = 0;
+      if (!activeRef.current && !stoppedAt) {
+        // Run ended or was stopped: fade back to the artwork right away, keep turning while fading.
+        stoppedAt = now;
         setTurning(false);
+      }
+      if (stoppedAt && now - stoppedAt > FADE_MS) {
+        phase.current = 0;
+        draw(0);
+        frame.current = 0;
         return;
       }
+      draw(phase.current);
       frame.current = requestAnimationFrame(tick);
     };
     frame.current = requestAnimationFrame(tick);
@@ -165,10 +174,17 @@ export function Logo({ active = false, className = '' }: { active?: boolean; cla
           The helix grows out of the head: it fades in from FADE_FROM to FADE_TO, and the head's
           silhouette (blurred) hides it softly where the two overlap.
         */}
-        <linearGradient id="omigator-fade" gradientUnits="userSpaceOnUse" x1={FADE_FROM} y1="0" x2={FADE_TO} y2="0">
+        <linearGradient id="omigator-fade" gradientUnits="userSpaceOnUse" x1={BLEND_FROM} y1="0" x2={BLEND_TO} y2="0">
           <stop offset="0" stopColor="black" />
           <stop offset="1" stopColor="white" />
         </linearGradient>
+        <linearGradient id="omigator-rigid-fade" gradientUnits="userSpaceOnUse" x1={BLEND_FROM} y1="0" x2={BLEND_TO} y2="0">
+          <stop offset="0" stopColor="white" />
+          <stop offset="1" stopColor="black" />
+        </linearGradient>
+        <mask id="omigator-rigid" maskUnits="userSpaceOnUse" x="0" y="300" width="1100" height="380">
+          <rect x="0" y="300" width="1100" height="380" fill="url(#omigator-rigid-fade)" />
+        </mask>
         <filter id="omigator-soft" filterUnits="userSpaceOnUse" x="0" y="300" width="1100" height="380">
           <feGaussianBlur stdDeviation={SOFT_EDGE} />
         </filter>
@@ -186,10 +202,18 @@ export function Logo({ active = false, className = '' }: { active?: boolean; cla
           <rect x="0" y="300" width={X_END + 2} height="380" />
         </clipPath>
       </defs>
+      {/* The artwork's helix: all of it at rest, only the part at the head while turning. */}
       <g className="logo-layer" data-visible={!turning} transform={transform} fill="currentColor">
         {ART_ONLY.map((d, i) => (
           <path key={i} d={d} />
         ))}
+      </g>
+      <g mask="url(#omigator-rigid)">
+        <g transform={transform} fill="currentColor">
+          {ART_ONLY.map((d, i) => (
+            <path key={i} d={d} />
+          ))}
+        </g>
       </g>
       <g className="logo-layer" data-visible={turning} mask="url(#omigator-behind-head)" clipPath="url(#omigator-helix-end)" fill="currentColor">
         <g mask="url(#omigator-helix-gaps)">
