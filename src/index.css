@@ -298,3 +298,11 @@ details > summary:hover {
   background: var(--color-warn);
   padding: 0 0.25rem;
 }
+
+/* Logo: the still artwork and the turning helix cross-fade. */
+.logo-layer {
+  transition: opacity 350ms ease;
+}
+.logo-layer[data-visible='false'] {
+  opacity: 0;
+}

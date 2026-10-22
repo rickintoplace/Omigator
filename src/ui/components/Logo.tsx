@@ -1,9 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import svgSource from '../../assets/omigator-logo.svg?raw';
 
 /**
- * The Omigator logo: the crocodile head from the original artwork and a double helix drawn from
- * its geometry (measured from the artwork), so the helix can turn while a run is in progress.
+ * The Omigator logo. At rest it is the original artwork. While a run is in progress it cross-fades
+ * to a double helix drawn from the artwork's geometry, which turns so that its windings travel away
+ * from the head; when the run ends the helix completes its turn and fades back to the artwork.
  *
  * Each strand is y = CENTER ∓ AMP·cos(θ), θ = 2π(x − PEAK_X)/PERIOD + phase. A strand is in front
  * where it rises; back parts and base pairs get gaps where a front part crosses them.
@@ -11,9 +12,12 @@ import svgSource from '../../assets/omigator-logo.svg?raw';
 
 const paths = [...svgSource.matchAll(/<path[^>]*\sd="([^"]+)"/g)].map((m) => m[1]);
 const transform = svgSource.match(/<g transform="([^"]+)"/)?.[1] ?? '';
-/** Paths of the drawn helix in the artwork; everything else is the head. */
+/** Paths of the drawn helix in the artwork. */
 const HELIX_PATHS = new Set([1, 2, 6, 7, 9, 12, 14, 15, 16, 22, 23]);
-const HEAD = paths.filter((_, i) => !HELIX_PATHS.has(i));
+/** A neck plate that shows between the strands; it belongs to the still artwork only. */
+const NECK_PLATE = 24;
+const HEAD = paths.filter((_, i) => !HELIX_PATHS.has(i) && i !== NECK_PLATE);
+const ART_ONLY = paths.filter((_, i) => HELIX_PATHS.has(i) || i === NECK_PLATE);
 
 const CENTER = 486;
 const AMP = 108;
@@ -21,15 +25,18 @@ const PERIOD = 515;
 const PEAK_X = 680;
 const X_START = 380;
 const X_END = 1004;
-const RUNGS = [643, 695, 747, 893, 942, 992];
+const K = (2 * Math.PI) / PERIOD;
+/** Base pairs: ten per turn, attached to the strands, so they travel with them. */
+const RUNG_SPACING = PERIOD / 10;
+const RUNG_ORIGIN = 638.5;
 /** Ribbon width (user units) where a strand faces the viewer; it narrows to MIN_WIDTH edge-on. */
 const FRONT_WIDTH = 36;
 const BACK_WIDTH = 26;
 const MIN_WIDTH = 3;
 const RUNG_WIDTH = 11;
 const GAP = 8;
-/** One full turn while screening. */
-const TURN_MS = 5200;
+/** One full turn. */
+const TURN_MS = 4800;
 
 type Pt = { x: number; y: number; w: number };
 
@@ -49,6 +56,11 @@ function ribbon(pts: Pt[]): string {
   return `M${upper.join('L')}L${lower.reverse().join('L')}Z`;
 }
 
+const smoothstep = (a: number, b: number, v: number) => {
+  const t = Math.min(1, Math.max(0, (v - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+
 function helix(phase: number) {
   const front: string[] = [];
   const back: string[] = [];
@@ -60,7 +72,7 @@ function helix(phase: number) {
       run = [];
     };
     for (let x = X_START; x <= X_END + 0.1; x += 3) {
-      const theta = (2 * Math.PI * (x - PEAK_X)) / PERIOD + phase;
+      const theta = K * (x - PEAK_X) + phase;
       const y = CENTER + sign * AMP * Math.cos(theta);
       const facing = sign * Math.sin(theta);
       // Rising (towards the top of the image) means facing the viewer.
@@ -75,15 +87,21 @@ function helix(phase: number) {
     }
     flush();
   }
-  const rungs = RUNGS.map((x) => {
-    const theta = (2 * Math.PI * (x - PEAK_X)) / PERIOD + phase;
-    const half = AMP * Math.abs(Math.cos(theta)) - 14;
-    return half > 6 ? `M${x} ${CENTER - half}L${x} ${CENTER + half}` : '';
-  }).join('');
-  return { front: front.join(''), back: back.join(''), rungs };
+  // Base pairs move with the strands: x shifts by −phase/K.
+  const shift = -phase / K;
+  const first = Math.ceil((X_START - RUNG_ORIGIN - shift) / RUNG_SPACING);
+  const rungs: string[] = [];
+  for (let k = first; ; k++) {
+    const x = RUNG_ORIGIN + shift + k * RUNG_SPACING;
+    if (x > X_END - 6) break;
+    const spread = Math.abs(Math.cos(K * (x - PEAK_X) + phase));
+    // Near a crossing the pair is short and hidden behind the front strand; fade it out there.
+    const half = (AMP * spread - 14) * smoothstep(0.45, 0.7, spread);
+    if (half > 2) rungs.push(`M${x.toFixed(1)} ${(CENTER - half).toFixed(1)}L${x.toFixed(1)} ${(CENTER + half).toFixed(1)}`);
+  }
+  return { front: front.join(''), back: back.join(''), rungs: rungs.join('') };
 }
 
-/** Phase at which the drawn helix matches the original artwork. */
 const REST = helix(0);
 
 export function Logo({ active = false, className = '' }: { active?: boolean; className?: string }) {
@@ -92,24 +110,44 @@ export function Logo({ active = false, className = '' }: { active?: boolean; cla
   const backRef = useRef<SVGPathElement>(null);
   const rungsRef = useRef<SVGPathElement>(null);
   const phase = useRef(0);
+  const activeRef = useRef(active);
+  activeRef.current = active;
+  /** True while the drawn helix is shown instead of the artwork. */
+  const [turning, setTurning] = useState(false);
+  const frame = useRef(0);
 
   useEffect(() => {
-    if (!active || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    let frame = 0;
+    if (!active || frame.current || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    setTurning(true);
     let last = performance.now();
-    const tick = (now: number) => {
-      phase.current = (phase.current + ((now - last) / TURN_MS) * 2 * Math.PI) % (2 * Math.PI);
-      last = now;
-      const h = helix(phase.current);
+    const draw = (p: number) => {
+      const h = helix(p);
       frontRef.current?.setAttribute('d', h.front);
       frontMaskRef.current?.setAttribute('d', h.front);
       backRef.current?.setAttribute('d', h.back);
       rungsRef.current?.setAttribute('d', h.rungs);
-      frame = requestAnimationFrame(tick);
     };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
+    const tick = (now: number) => {
+      const before = phase.current;
+      // Decreasing phase moves the windings to the right, away from the head.
+      let next = before - ((now - last) / TURN_MS) * 2 * Math.PI;
+      last = now;
+      // After the run, finish the current turn, then return to the artwork.
+      const stop = !activeRef.current && Math.floor(next / (2 * Math.PI)) < Math.floor(before / (2 * Math.PI));
+      if (stop) next = 0;
+      phase.current = next;
+      draw(next);
+      if (stop) {
+        frame.current = 0;
+        setTurning(false);
+        return;
+      }
+      frame.current = requestAnimationFrame(tick);
+    };
+    frame.current = requestAnimationFrame(tick);
   }, [active]);
+
+  useEffect(() => () => cancelAnimationFrame(frame.current), []);
 
   return (
     <svg viewBox="38 356 972 264" className={className} role="img" aria-label="Omigator">
@@ -119,7 +157,7 @@ export function Logo({ active = false, className = '' }: { active?: boolean; cla
           <rect x="300" y="300" width="800" height="380" fill="white" />
           <path ref={frontMaskRef} d={REST.front} fill="black" stroke="black" strokeWidth={2 * GAP} strokeLinejoin="round" />
         </mask>
-        {/* The head hides the start of the helix, including the gaps between its facets. */}
+        {/* The head hides the start of the helix, with the same small gap as in the artwork. */}
         <mask id="omigator-behind-head" maskUnits="userSpaceOnUse" x="0" y="300" width="1100" height="380">
           <rect x="0" y="300" width="1100" height="380" fill="white" />
           <g transform={transform}>
@@ -132,7 +170,12 @@ export function Logo({ active = false, className = '' }: { active?: boolean; cla
           <rect x="0" y="300" width={X_END + 2} height="380" />
         </clipPath>
       </defs>
-      <g mask="url(#omigator-behind-head)" clipPath="url(#omigator-helix-end)" fill="currentColor">
+      <g className="logo-layer" data-visible={!turning} transform={transform} fill="currentColor">
+        {ART_ONLY.map((d, i) => (
+          <path key={i} d={d} />
+        ))}
+      </g>
+      <g className="logo-layer" data-visible={turning} mask="url(#omigator-behind-head)" clipPath="url(#omigator-helix-end)" fill="currentColor">
         <g mask="url(#omigator-helix-gaps)">
           <path ref={backRef} d={REST.back} />
           <path ref={rungsRef} d={REST.rungs} fill="none" stroke="currentColor" strokeWidth={RUNG_WIDTH} />
