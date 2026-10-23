@@ -53,14 +53,22 @@ export function useRun(appVersion: string) {
     createIdbCache().then((c) => (cacheRef.current = c));
   }, []);
 
+  /** Ends the current run; a cancelled run no longer writes to the state. */
+  const cancel = () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+  };
+
   const log = (message: string) =>
     setState((s) => ({ ...s, log: [...s.log.slice(-300), `${new Date().toLocaleTimeString()}  ${message}`] }));
 
   const start = useCallback(
     async (protocol: Protocol, input: RunInput, ncbi: Ncbi, scorer: Scorer) => {
-      abortRef.current?.abort();
+      cancel();
       const controller = new AbortController();
       abortRef.current = controller;
+      // A run replaced by another (or by reset/load) finishes in the background; only the current one reports.
+      const current = () => abortRef.current === controller;
       const byGse = new Map<string, DatasetResult>();
       setState({ ...INITIAL, status: 'running', message: 'Starting…', protocol, scorer, input, source: 'run' });
 
@@ -74,6 +82,7 @@ export function useRun(appVersion: string) {
           signal: controller.signal,
           appVersion,
           onEvent: (e) => {
+            if (!current()) return;
             if (e.type === 'phase') {
               setState((s) => ({ ...s, message: e.message }));
               log(e.message);
@@ -91,8 +100,10 @@ export function useRun(appVersion: string) {
             } else if (e.type === 'log') log(e.message);
           },
         });
+        if (!current()) return;
         setState((s) => ({ ...s, status: 'done', results: out.results, manifest: out.manifest, message: out.manifest.counts.failed ? `${out.manifest.counts.failed} datasets failed — retry them from their row.` : 'Done.' }));
       } catch (err) {
+        if (!current()) return;
         if (isAbort(err, controller.signal)) {
           setState((s) => ({ ...s, status: 'done', message: 'Stopped. Results so far are kept.' }));
         } else {
@@ -107,14 +118,14 @@ export function useRun(appVersion: string) {
   const stop = useCallback(() => abortRef.current?.abort(), []);
 
   const reset = useCallback(() => {
-    abortRef.current?.abort();
+    cancel();
     setState(INITIAL);
   }, []);
 
   /** Shows results that were saved or shared (no run in progress). */
   const load = useCallback(
     (data: { results: DatasetResult[]; protocol: Protocol; input: RunInput; manifest?: RunManifest; message: string; source: 'saved' | 'shared' }) => {
-      abortRef.current?.abort();
+      cancel();
       setState({ ...INITIAL, status: 'done', total: data.results.length, done: data.results.length, ...data });
     },
     [],
@@ -125,7 +136,7 @@ export function useRun(appVersion: string) {
 
   /** Replays a recorded run with roughly the pacing of a real one (about 8 s in total). */
   const startDemo = useCallback(async (demo: DemoRecording) => {
-    abortRef.current?.abort();
+    cancel();
     const controller = new AbortController();
     abortRef.current = controller;
     const { signal } = controller;
@@ -145,6 +156,7 @@ export function useRun(appVersion: string) {
       }
       setState((s) => ({ ...s, status: 'done', manifest: demo.manifest, results: demo.results, message: `Recorded run from ${demo.recordedAt}. Open a dataset to see why it was ranked there.` }));
     } catch {
+      if (abortRef.current !== controller) return;
       setState((s) => ({ ...s, status: 'done', message: 'Demo stopped.' }));
     }
   }, []);
