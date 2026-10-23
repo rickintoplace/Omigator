@@ -11,7 +11,7 @@
   Runs in your browser. No account, no server, no data kept.
 </p>
 
-**Try it:** **https://omigator.vercel.app** → *Watch a recorded run*. You don't need a key for the demo.
+**Try it:** **https://omigator.rickinto.place** → *Watch a recorded run*. You don't need a key for the demo.
 
 ---
 
@@ -80,8 +80,8 @@ OpenAI-compatible server that returns logprobs: vLLM, llama.cpp, Ollama or an in
 The browser calls that server directly, so the server must allow the page's origin:
 
 ```bash
-vllm serve <model> --allowed-origins '["https://omigator.vercel.app"]'
-OLLAMA_ORIGINS=https://omigator.vercel.app ollama serve
+vllm serve <model> --allowed-origins '["https://omigator.rickinto.place"]'
+OLLAMA_ORIGINS=https://omigator.rickinto.place ollama serve
 ```
 
 **Hosting the app yourself.** It is a static site: `npm run build`, then serve `dist/` from any web

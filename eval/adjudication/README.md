@@ -26,7 +26,7 @@ The sample was fixed before any record was read (`sample.json`, seed 20261019):
 The records were read in a shuffled order without the model's probabilities, from the same dossier
 text the model saw (series, sample groups, protocols, abstract).
 
-## Who judged
+## Judging
 
 The adjudicator was Claude (Anthropic), working in the Omigator development session on 2026-10-19,
 not a domain expert. The judgments are not fully blind: some datasets had been inspected earlier
