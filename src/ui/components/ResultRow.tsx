@@ -40,7 +40,7 @@ export function ResultRow(props: ResultRowProps) {
   const c = r.candidate;
 
   return (
-    <article className={`brutal-border bg-[var(--color-paper)] ${expanded ? 'brutal-shadow' : 'brutal-shadow-sm'} transition-shadow`}>
+    <article data-gse={r.gse} className={`brutal-border bg-[var(--color-paper)] ${expanded ? 'brutal-shadow' : 'brutal-shadow-sm'} transition-shadow`}>
       <div className="flex items-stretch">
         <button className="flex-1 min-w-0 text-left p-3 flex gap-3 items-start hover-surface" onClick={props.onToggle} aria-expanded={expanded}>
           <span className="pt-0.5">

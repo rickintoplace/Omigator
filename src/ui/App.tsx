@@ -17,6 +17,7 @@ import { exportCsv, exportJson } from './export';
 import { listRuns, type SavedRunMeta } from './idbCache';
 import { fetchRun, newRunId, openShared, shareUrl, storeRun } from './persistence';
 import { chatTarget, isReady, type Keys, load, loadKeys, loadSettings, makeNcbi, makeScorer, save, saveKeys, saveSettings, type Settings } from './settings';
+import { useHeldOrder } from './useHeldOrder';
 import { useRun } from './useRun';
 
 const VERSION = __APP_VERSION__;
@@ -369,19 +370,26 @@ export default function App() {
     return new Set(results.filter((r) => (r.dossier?.series?.superSeriesOf ?? r.superSeriesOf)?.some((g) => listed.has(g))).map((r) => r.gse));
   }, [results]);
 
+  const { order, held, listProps } = useHeldOrder(results, running, expanded.size > 0);
+  // Hiding a SuperSeries found during the hold would pull the rows below it up.
+  const heldDuplicates = useRef(duplicates);
+  if (!held) heldDuplicates.current = duplicates;
+  const hidden = held ? heldDuplicates.current : duplicates;
   const visible = useMemo(() => {
     const q = filterText.trim().toLowerCase();
-    return results
-      .map((r, i) => ({ r, rank: i + 1 }))
+    // Ranks stay live while the order is held.
+    const rank = new Map(results.map((r, i) => [r.gse, i + 1]));
+    return order
+      .map((r) => ({ r, rank: rank.get(r.gse)! }))
       .filter(({ r }) => {
         if (view === 'audit') return audit.includes(r.gse);
         if (view === 'failed') return !r.screening && r.error;
         if (view !== 'all') return r.screening?.decision === view;
         return true;
       })
-      .filter(({ r }) => !hideSuperSeries || view === 'audit' || !duplicates.has(r.gse))
+      .filter(({ r }) => !hideSuperSeries || view === 'audit' || !hidden.has(r.gse))
       .filter(({ r }) => !q || `${r.gse} ${r.candidate.title} ${r.candidate.summary}`.toLowerCase().includes(q));
-  }, [results, view, audit, filterText, hideSuperSeries, duplicates]);
+  }, [results, order, view, audit, filterText, hideSuperSeries, hidden]);
 
   const startAudit = () => {
     const pool = results.filter((r) => r.screening && labels[r.gse] === undefined).map((r) => r.gse);
@@ -603,6 +611,11 @@ export default function App() {
                       </label>
                     )}
                     <span className="flex-1" />
+                    {(running || held) && (
+                      <span className="text-xs px-1.5 brutal-border-thin" title="New scores don't move rows while you're in the list; they slide into place when you leave it.">
+                        {held ? 'Ranking paused' : 'Live ranking'}
+                      </span>
+                    )}
                     {canExplain && topToExplain.length > 0 && !running && (
                       <button className="brutal-button px-2.5 py-1 text-sm" onClick={() => explainTargets(topToExplain)} disabled={topToExplain.some((r) => busy.has(r.gse))}>
                         <MessageSquareQuote className="w-4 h-4" /> Explain top {topToExplain.length}
@@ -627,35 +640,37 @@ export default function App() {
                       datasets the decisions keep; see <b>Check accuracy</b>.
                     </p>
                   )}
-                  {visible.map(({ r, rank }) => (
-                    <ResultRow
-                      key={r.gse}
-                      result={r}
-                      rank={rank}
-                      protocol={shownProtocol}
-                      expanded={expanded.has(r.gse)}
-                      onToggle={() =>
-                        setExpanded((s) => {
-                          const n = new Set(s);
-                          n.has(r.gse) ? n.delete(r.gse) : n.add(r.gse);
-                          return n;
-                        })
-                      }
-                      label={labels[r.gse]}
-                      onLabel={(v) =>
-                        setLabels((l) => {
-                          const n = { ...l };
-                          if (v === undefined) delete n[r.gse];
-                          else n[r.gse] = v;
-                          return n;
-                        })
-                      }
-                      busy={busy.has(r.gse)}
-                      onExplain={canExplain && (!demo || demo.explanations[r.gse]) ? () => explainTargets([r]) : undefined}
-                      onRetry={r.error && !demo ? () => retry(r) : undefined}
-                      calibrated={platt && r.screening ? plattProbability(platt, r.screening.logScore) : undefined}
-                    />
-                  ))}
+                  <div className="relative space-y-3" {...listProps}>
+                    {visible.map(({ r, rank }) => (
+                      <ResultRow
+                        key={r.gse}
+                        result={r}
+                        rank={rank}
+                        protocol={shownProtocol}
+                        expanded={expanded.has(r.gse)}
+                        onToggle={() =>
+                          setExpanded((s) => {
+                            const n = new Set(s);
+                            n.has(r.gse) ? n.delete(r.gse) : n.add(r.gse);
+                            return n;
+                          })
+                        }
+                        label={labels[r.gse]}
+                        onLabel={(v) =>
+                          setLabels((l) => {
+                            const n = { ...l };
+                            if (v === undefined) delete n[r.gse];
+                            else n[r.gse] = v;
+                            return n;
+                          })
+                        }
+                        busy={busy.has(r.gse)}
+                        onExplain={canExplain && (!demo || demo.explanations[r.gse]) ? () => explainTargets([r]) : undefined}
+                        onRetry={r.error && !demo ? () => retry(r) : undefined}
+                        calibrated={platt && r.screening ? plattProbability(platt, r.screening.logScore) : undefined}
+                      />
+                    ))}
+                  </div>
                   {!visible.length && <p className="text-sm text-[var(--color-muted)]">Nothing in this view.</p>}
                 </div>
               )}
