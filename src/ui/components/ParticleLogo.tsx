@@ -135,8 +135,10 @@ export const ParticleLogo: React.FC<ParticleLogoProps> = ({ imageSrc, className 
       const e = pendingPointer;
       pendingPointer = null;
 
-      const xCss = e.clientX - rect.left;
-      const yCss = e.clientY - rect.top;
+      // Read the position now: scrolling moves the canvas without resizing it.
+      const now = canvas.getBoundingClientRect();
+      const xCss = e.clientX - now.left;
+      const yCss = e.clientY - now.top;
       pointer.x = xCss * dpr;
       pointer.y = yCss * dpr;
       pointer.active = true;
