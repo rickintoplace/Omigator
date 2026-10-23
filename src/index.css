@@ -20,6 +20,8 @@
   --color-pass-weak: #a6e3bd;
   /* A whisper of the accent for hover and focus backgrounds. */
   --color-tint: #effff2;
+  /* Olive behind the crocodile scales. */
+  --color-scales: #e9ecdb;
 }
 
 /* Navigation crossfades; the header stays put. */
@@ -271,7 +273,7 @@ details > summary:hover {
 
 /* Crocodile scutes behind the results; faint enough that cards and text stay in front. */
 .scales-bg {
-  background-color: var(--color-surface);
+  background-color: var(--color-scales);
   background-image: url('./assets/scales.svg');
   background-attachment: local;
 }
