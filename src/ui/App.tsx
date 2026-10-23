@@ -446,18 +446,19 @@ export default function App() {
 
       <header className="site-header flex items-center gap-3 px-4 py-2 brutal-border-b bg-[var(--color-accent)] shrink-0">
         <button className="logo-home flex items-center gap-2" onClick={() => navigate({ screen: 'start' })} title="Home">
-          <Logo active={running} className="h-10 w-auto" />
-          <span className="font-display text-xl uppercase leading-none">Omigator</span>
+          <Logo active={running} className="h-8 sm:h-10 w-auto" />
+          {/* On phones the name gives way to the buttons; the workspace has one more of them. */}
+          <span className={`font-display text-lg sm:text-xl uppercase leading-none hidden ${workspace ? 'min-[400px]:inline' : 'min-[360px]:inline'}`}>Omigator</span>
         </button>
         <span className="text-xs mono hidden sm:inline">v{VERSION}</span>
         <span className="flex-1" />
         {workspace && (
-          <button className="brutal-button px-3 py-1.5 text-sm bg-white" onClick={newRequest}>
-            <Plus className="w-4 h-4" /> New request
+          <button className="brutal-button px-3 py-1.5 text-sm bg-white" onClick={newRequest} aria-label="New request" title="New request">
+            <Plus className="w-4 h-4" /> <span className="hidden sm:inline">New request</span>
           </button>
         )}
-        <button className="brutal-button px-3 py-1.5 text-sm bg-white" onClick={openSettings}>
-          <SettingsIcon className="w-4 h-4" /> Settings
+        <button className="brutal-button px-3 py-1.5 text-sm bg-white" onClick={openSettings} aria-label="Settings" title="Settings">
+          <SettingsIcon className="w-4 h-4" /> <span className="hidden sm:inline">Settings</span>
           <span className={`w-2 h-2 rounded-full ${scorerReady ? 'bg-green-600' : 'bg-red-500'}`} title={scorerReady ? 'Ready' : 'Key missing'} />
         </button>
         <button className="brutal-button px-3 py-1.5 text-sm bg-white hidden md:inline-flex" onClick={() => navigate({ dialog: 'cite' })}>
