@@ -30,7 +30,7 @@ export function StartScreen(p: StartScreenProps) {
   const draft = () => (p.hasKey ? p.onDraft() : setAskKey(true));
 
   return (
-    <div className="min-h-full flex flex-col items-center px-5 py-10 md:py-14">
+    <div className="min-h-full flex flex-col items-center px-5 py-10 md:py-14 scales-bg-soft">
       <div className="w-full max-w-3xl space-y-7">
         <ParticleLogo imageSrc={omigatorLogoPng} className="logo-wallpaper mx-auto" />
 
@@ -116,7 +116,7 @@ export function StartScreen(p: StartScreenProps) {
           </div>
         )}
 
-        <div className="card p-4 flex flex-wrap items-center gap-4 scales-bg">
+        <div className="card p-4 flex flex-wrap items-center gap-4">
           <div className="flex-1 min-w-[14rem]">
             <div className="font-semibold">Just looking?</div>
             <div className="text-sm text-[var(--color-muted)]">Replay a real, recorded run of 187 datasets. No key, nothing sent anywhere.</div>

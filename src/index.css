@@ -277,6 +277,12 @@ details > summary:hover {
   background-image: url('./assets/scales.svg');
   background-attachment: local;
 }
+/* The start page is mostly free text: the same scales, washed halfway to paper. */
+.scales-bg-soft {
+  --wash: color-mix(in srgb, var(--color-paper) 50%, transparent);
+  background-color: var(--color-scales);
+  background-image: linear-gradient(var(--wash), var(--wash)), url('./assets/scales.svg');
+}
 
 .logo-wallpaper {
   width: 40em;
