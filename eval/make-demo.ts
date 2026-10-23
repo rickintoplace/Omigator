@@ -91,7 +91,7 @@ const recordedAt = manifest.createdAt.slice(0, 10);
 const demo: DemoRecording = {
   title: 'Hypoxia vs normoxia, bulk RNA-seq, human cells',
   recordedAt,
-  note: `a real run recorded on ${recordedAt}, replayed in your browser. ${screened.length} GEO series screened with ${manifest.scorer.snapshots.join(', ')} against the inclusion criteria of a published meta-analysis (Puente-Santamaria et al. 2022). Open any dataset to see why.`,
+  note: `a real run recorded on ${recordedAt}. ${screened.length} GEO series screened with against the inclusion criteria of a published meta-analysis (Puente-Santamaria et al. 2022).`,
   protocol: task.protocol,
   retmax: task.input.retmax,
   manifest,

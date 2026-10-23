@@ -154,7 +154,7 @@ export function useRun(appVersion: string) {
         shown.set(r.gse, r);
         setState((s) => ({ ...s, done: s.done + 1, results: sortResults([...shown.values()]) }));
       }
-      setState((s) => ({ ...s, status: 'done', manifest: demo.manifest, results: demo.results, message: `Recorded run from ${demo.recordedAt}. Open a dataset to see why it was ranked there.` }));
+      setState((s) => ({ ...s, status: 'done', manifest: demo.manifest, results: demo.results, message: `Recorded run from ${demo.recordedAt}.` }));
     } catch {
       if (abortRef.current !== controller) return;
       setState((s) => ({ ...s, status: 'done', message: 'Demo stopped.' }));
