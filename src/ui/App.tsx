@@ -4,6 +4,7 @@ import { flushSync } from 'react-dom';
 import { buildGdsTerm, type DatasetResult, type Decision, draftProtocol, fitPlatt, loadDossier, normalizeGseList, plattProbability, type Protocol } from '../core';
 import { CiteDialog, GITHUB_URL } from './components/CiteDialog';
 import { DnaProgress } from './components/DnaProgress';
+import { HeaderMenu } from './components/HeaderMenu';
 import { InsightsView } from './components/InsightsView';
 import { Logo } from './components/Logo';
 import { KeyPrompt } from './components/KeyPrompt';
@@ -444,33 +445,34 @@ export default function App() {
       {showSettings && <SettingsDialog settings={settings} keys={keys} onSettings={setSettings} onKeys={setKeys} onClose={closeDialog} />}
       {showCite && <CiteDialog version={VERSION} onClose={closeDialog} />}
 
-      <header className="site-header flex items-center gap-3 px-4 py-2 brutal-border-b bg-[var(--color-accent)] shrink-0">
+      <header className="site-header flex items-center gap-2 sm:gap-3 px-4 py-2 brutal-border-b bg-[var(--color-accent)] shrink-0">
         <button className="logo-home flex items-center gap-2" onClick={() => navigate({ screen: 'start' })} title="Home">
-          <Logo active={running} className="h-8 sm:h-10 w-auto" />
+          <Logo active={running} className="h-7 sm:h-10 w-auto" />
           {/* On phones the name gives way to the buttons; the workspace has one more of them. */}
-          <span className={`font-display text-lg sm:text-xl uppercase leading-none hidden ${workspace ? 'min-[400px]:inline' : 'min-[360px]:inline'}`}>Omigator</span>
+          <span className={`font-display text-lg sm:text-xl uppercase leading-none hidden ${workspace ? 'min-[440px]:inline' : 'min-[390px]:inline'}`}>Omigator</span>
         </button>
         <span className="text-xs mono hidden sm:inline">v{VERSION}</span>
         <span className="flex-1" />
         {workspace && (
           <button className="brutal-button px-3 py-1.5 text-sm bg-white" onClick={newRequest} aria-label="New request" title="New request">
-            <Plus className="w-4 h-4" /> <span className="hidden sm:inline">New request</span>
+            <Plus className="w-4 h-4" /> <span className="hidden md:inline">New request</span>
           </button>
         )}
         <button className="brutal-button px-3 py-1.5 text-sm bg-white" onClick={openSettings} aria-label="Settings" title="Settings">
-          <SettingsIcon className="w-4 h-4" /> <span className="hidden sm:inline">Settings</span>
+          <SettingsIcon className="w-4 h-4" /> <span className="hidden md:inline">Settings</span>
           <span className={`w-2 h-2 rounded-full ${scorerReady ? 'bg-green-600' : 'bg-red-500'}`} title={scorerReady ? 'Ready' : 'Key missing'} />
         </button>
-        <button className="brutal-button px-3 py-1.5 text-sm bg-white hidden md:inline-flex" onClick={() => navigate({ dialog: 'cite' })}>
+        <button className="brutal-button px-3 py-1.5 text-sm bg-white hidden lg:inline-flex" onClick={() => navigate({ dialog: 'cite' })}>
           <Quote className="w-4 h-4" /> Cite
         </button>
-        <a className="brutal-button px-3 py-1.5 text-sm bg-white hidden md:inline-flex" href={GITHUB_URL} target="_blank" rel="noreferrer">
+        <a className="brutal-button px-3 py-1.5 text-sm bg-white hidden lg:inline-flex" href={GITHUB_URL} target="_blank" rel="noreferrer">
           Code <ExternalLink className="w-3.5 h-3.5" />
         </a>
         <span className="hidden lg:flex flex-col text-xs leading-tight">
           <a className="link" href="/legal.html#privacy">Privacy</a>
           <a className="link" href="/legal.html#imprint">Imprint</a>
         </span>
+        <HeaderMenu codeUrl={GITHUB_URL} onCite={() => navigate({ dialog: 'cite' })} />
       </header>
 
       {!workspace ? (
