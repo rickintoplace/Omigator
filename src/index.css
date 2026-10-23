@@ -269,10 +269,11 @@ details > summary:hover {
 .kind-exclude { background: var(--color-danger); color: var(--color-paper); }
 .kind-prefer { background: var(--color-surface); }
 
-.dotted-bg {
+/* Crocodile scutes behind the results; faint enough that cards and text stay in front. */
+.scales-bg {
   background-color: var(--color-surface);
-  background-image: radial-gradient(var(--color-line) 1px, transparent 1px);
-  background-size: 20px 20px;
+  background-image: url('./assets/scales.svg');
+  background-attachment: local;
 }
 
 .logo-wallpaper {

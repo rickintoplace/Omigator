@@ -116,7 +116,7 @@ export function StartScreen(p: StartScreenProps) {
           </div>
         )}
 
-        <div className="card p-4 flex flex-wrap items-center gap-4 dotted-bg">
+        <div className="card p-4 flex flex-wrap items-center gap-4 scales-bg">
           <div className="flex-1 min-w-[14rem]">
             <div className="font-semibold">Just looking?</div>
             <div className="text-sm text-[var(--color-muted)]">Replay a real, recorded run of 187 datasets. No key, nothing sent anywhere.</div>

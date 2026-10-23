@@ -579,9 +579,9 @@ export default function App() {
               </div>
             )}
 
-            <div className="flex-1 overflow-auto dotted-bg">
+            <div className="flex-1 overflow-auto scales-bg">
               {tab === 'log' ? (
-                <pre className="p-4 text-xs whitespace-pre-wrap">{state.log.join('\n') || 'Nothing yet.'}</pre>
+                <pre className="p-4 text-xs whitespace-pre-wrap min-h-full bg-[var(--color-paper)]">{state.log.join('\n') || 'Nothing yet.'}</pre>
               ) : tab === 'insights' ? (
                 <InsightsView results={results} labels={labels} goldText={goldText} onGoldText={setGoldText} onAudit={startAudit} />
               ) : !results.length && !running ? (
@@ -671,7 +671,7 @@ export default function App() {
                       />
                     ))}
                   </div>
-                  {!visible.length && <p className="text-sm text-[var(--color-muted)]">Nothing in this view.</p>}
+                  {!visible.length && <p className="card p-3 text-sm text-[var(--color-muted)]">Nothing in this view.</p>}
                 </div>
               )}
             </div>
