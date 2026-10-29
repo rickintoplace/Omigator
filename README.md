@@ -13,6 +13,11 @@
 
 **Try it:** **https://omigator.rickinto.place** → *Watch a recorded run*. You don't need a key for the demo.
 
+<p align="center">
+  <img src="./docs/omigator-demo.gif" alt="A real Omigator run: one sentence becomes a GEO search and a checklist, 174 datasets are screened, and the top hit is explained with quotes checked against the GEO record" width="960" />
+</p>
+<p align="center"><sub>A real run, recorded on 2026-10-29 (waiting times sped up; screening cost $0.007).</sub></p>
+
 ---
 
 ## What it does

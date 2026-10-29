@@ -1,4 +1,5 @@
 import { LoaderCircle, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { type TextareaHTMLAttributes, useLayoutEffect, useRef } from 'react';
 import { type Criterion, type CriterionKind, type Protocol, slug } from '../../core';
 import { Card, Field, Hint } from './ui';
 
@@ -25,6 +26,18 @@ const KINDS: { kind: CriterionKind; label: string; hint: string }[] = [
   { kind: 'exclude', label: 'Must not', hint: 'disqualifies when true' },
   { kind: 'prefer', label: 'Nice', hint: 'only improves the ranking' },
 ];
+
+/** A textarea as tall as its text: `field-sizing` where the browser has it, measured otherwise. */
+function GrowingTextarea({ className, ...rest }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || CSS.supports('field-sizing', 'content')) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  });
+  return <textarea ref={ref} className={`${className} [field-sizing:content]`} {...rest} />;
+}
 
 export function ProtocolPanel(props: ProtocolPanelProps) {
   const { protocol, onChange, readOnly } = props;
@@ -155,7 +168,7 @@ export function ProtocolPanel(props: ProtocolPanelProps) {
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
-              <textarea
+              <GrowingTextarea
                 className="w-full text-sm resize-y min-h-[3rem] px-2 py-1.5 outline-none focus:bg-[var(--color-surface)]"
                 value={c.text}
                 placeholder="e.g. Each condition has at least two biological replicates."
