@@ -5,14 +5,14 @@
  * probabilities (0.9994 vs 0.99999) survives.
  */
 
-import { aggregate, DEFAULT_THRESHOLDS } from './decide';
-import { buildDossier } from './evidence';
-import { fetchSeries } from './geo';
-import type { Fetch } from './http';
-import type { Ncbi } from './ncbi';
-import type { Cache, RunInput, RunManifest } from './pipeline';
-import { SERIES_CACHE, sortResults } from './pipeline';
-import type { Candidate, DatasetResult, Explanation, Protocol, Series } from './types';
+import { aggregate, DEFAULT_THRESHOLDS } from './decide.js';
+import { buildDossier } from './evidence.js';
+import { fetchSeries } from './geo.js';
+import type { Fetch } from './http.js';
+import type { Ncbi } from './ncbi.js';
+import type { Cache, RunInput, RunManifest } from './pipeline.js';
+import { SERIES_CACHE, sortResults } from './pipeline.js';
+import type { Candidate, DatasetResult, Explanation, Protocol, Series } from './types.js';
 
 export interface Snapshot {
   v: 1;

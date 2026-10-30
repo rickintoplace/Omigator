@@ -4,16 +4,16 @@
  * another model behind the user's back. Explanations are a separate, on-demand step.
  */
 
-import { aggregate, DEFAULT_THRESHOLDS, type Thresholds } from './decide';
-import { buildDossier, DEFAULT_CAPS, type DossierCaps } from './evidence';
+import { aggregate, DEFAULT_THRESHOLDS, type Thresholds } from './decide.js';
+import { buildDossier, DEFAULT_CAPS, type DossierCaps } from './evidence.js';
 import type { EntailmentJudge } from 'veriquote';
-import { EXPLAIN_SYSTEM, explain, judgeSupport, relocateQuotes } from './explain';
-import { fetchSeries } from './geo';
-import { type Fetch, isAbort, mapPool, sha256 } from './http';
-import type { Endpoint } from './llm';
-import { applyFilters, buildGdsTerm, type FilterReport, Ncbi } from './ncbi';
-import type { Scorer } from './scorers';
-import type { Candidate, DatasetResult, Explanation, Paper, Protocol, Series, SupportCheck } from './types';
+import { EXPLAIN_SYSTEM, explain, judgeSupport, relocateQuotes } from './explain.js';
+import { fetchSeries } from './geo.js';
+import { type Fetch, isAbort, mapPool, sha256 } from './http.js';
+import type { Endpoint } from './llm.js';
+import { applyFilters, buildGdsTerm, type FilterReport, Ncbi } from './ncbi.js';
+import type { Scorer } from './scorers.js';
+import type { Candidate, DatasetResult, Explanation, Paper, Protocol, Series, SupportCheck } from './types.js';
 
 export interface Cache {
   get<T>(key: string): Promise<T | undefined>;

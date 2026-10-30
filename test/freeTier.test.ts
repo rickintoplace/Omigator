@@ -4,7 +4,9 @@ import { describe, expect, it } from 'vitest';
 import { type FreeTierConfig, handleFreeTier, LIMITS, memoryStore } from '../server/freeTier';
 
 const ORIGIN = 'https://omigator.rickinto.place';
-const now = Date.parse('2026-10-30T12:00:00Z');
+// Real time: ALTCHA checks a challenge's expiry against the clock.
+const now = Date.now();
+const today = new Date(now).toISOString().slice(0, 10);
 
 function setup(): FreeTierConfig {
   return { openrouterKey: 'sk-test', secret: 'x'.repeat(40), store: memoryStore(), origins: [ORIGIN], now: () => now };
@@ -80,7 +82,7 @@ describe('free tier', () => {
     const { body } = await session(cfg);
     expect(calls).toBe(0); // status, challenge and session never touch the database
     const visitor = visitorOf(body.token);
-    await counting.incr(`omigator:q:2026-10-30:${visitor}:explanations`, LIMITS.explanations, 60);
+    await counting.incr(`omigator:q:${today}:${visitor}:explanations`, LIMITS.explanations, 60);
     const explain = () => handleFreeTier(req('explain', { body: { candidate: { gse: 'GSE1' }, criteria }, token: body.token }), cfg);
     const res = await explain();
     expect(res.status).toBe(429);

@@ -1,7 +1,7 @@
 /** NCBI E-utilities client (GEO DataSets + PubMed). Called directly; E-utilities send CORS headers. */
 
-import { type Fetch, RateLimiter, request } from './http';
-import type { Candidate, Filters, Paper } from './types';
+import { type Fetch, RateLimiter, request } from './http.js';
+import type { Candidate, Filters, Paper } from './types.js';
 
 const EUTILS = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
 

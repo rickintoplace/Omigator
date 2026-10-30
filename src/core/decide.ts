@@ -3,7 +3,7 @@
  * code, not in the model: LLMs asked for one overall verdict sometimes treat AND as OR.
  */
 
-import type { Criterion, Decision, Screening } from './types';
+import type { Criterion, Decision, Screening } from './types.js';
 
 export interface Thresholds {
   /** A criterion counts as met at p ≥ this (or, for exclusions, as not applying at p ≤ 1 − this). */

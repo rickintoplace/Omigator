@@ -27,6 +27,7 @@ export function SettingsDialog({
   onKeys,
   onClose,
   onWithdrawFreeTier,
+  freeTier,
 }: {
   settings: Settings;
   keys: Keys;
@@ -35,7 +36,11 @@ export function SettingsDialog({
   onClose: () => void;
   /** Set while the visitor has agreed to the free tier on this device. */
   onWithdrawFreeTier?: () => void;
+  /** The free tier is available; without a key it screens with fixed models. */
+  freeTier?: boolean;
 }) {
+  // The free tier pays for its models, so they are fixed there; an own key unlocks the choice.
+  const locked = Boolean(freeTier) && !keys.openrouter.trim();
   const [withdrawn, setWithdrawn] = useState(false);
   const set = (patch: Partial<Settings>) => onSettings({ ...settings, ...patch });
   const setKey = (patch: Partial<Keys>) => onKeys({ ...keys, ...patch });
@@ -90,9 +95,15 @@ export function SettingsDialog({
       </Group>
 
       <Group title="Models">
+        {locked && (
+          <Hint>
+            Without a key, the free tier always uses {DECISION_MODELS[0].label} for screening and {CHAT_MODELS[0].label} for drafts and
+            explanations. Add your key above to choose other models.
+          </Hint>
+        )}
         {settings.scoring === 'openrouter-decisions' && (
-          <Field label="Screening" hint={DECISION_MODELS.find((m) => m.id === settings.decisionModel)?.note}>
-            <select className="brutal-select" value={settings.decisionModel} onChange={(e) => set({ decisionModel: e.target.value })}>
+          <Field label="Screening" hint={locked ? undefined : DECISION_MODELS.find((m) => m.id === settings.decisionModel)?.note}>
+            <select className="brutal-select" value={locked ? DECISION_MODELS[0].id : settings.decisionModel} disabled={locked} onChange={(e) => set({ decisionModel: e.target.value })}>
               {DECISION_MODELS.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.label}
@@ -103,8 +114,8 @@ export function SettingsDialog({
           </Field>
         )}
         {settings.chatEndpoint === 'openrouter' && (
-          <Field label="Drafting and explanations" hint={CHAT_MODELS.find((m) => m.id === settings.chatModel)?.note}>
-            <select className="brutal-select" value={settings.chatModel} onChange={(e) => set({ chatModel: e.target.value })}>
+          <Field label="Drafting and explanations" hint={locked ? undefined : CHAT_MODELS.find((m) => m.id === settings.chatModel)?.note}>
+            <select className="brutal-select" value={locked ? CHAT_MODELS[0].id : settings.chatModel} disabled={locked} onChange={(e) => set({ chatModel: e.target.value })}>
               {CHAT_MODELS.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.label}

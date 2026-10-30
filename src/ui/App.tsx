@@ -259,7 +259,8 @@ export default function App() {
   const free = useFreeTier();
   const [freeConsent, setFreeConsent] = useState(loadFreeConsent);
   // Without an own key or endpoint, the free tier is offered; once agreed to, it screens, drafts and explains.
-  const noOwnSetup = needsOpenRouterKey && settings.scoring === 'openrouter-decisions' && settings.chatEndpoint === 'openrouter';
+  // Model choices do not matter here: the free tier's server uses fixed models.
+  const noOwnSetup = needsOpenRouterKey && settings.chatEndpoint === 'openrouter';
   const useFree = free.enabled && noOwnSetup && freeConsent;
   const offerFree = free.enabled && noOwnSetup && !freeConsent;
   // Known once the server has answered a screening request today; until then unknown.
@@ -486,6 +487,7 @@ export default function App() {
           onKeys={setKeys}
           onClose={closeDialog}
           onWithdrawFreeTier={freeConsent ? () => (saveFreeConsent(false), setFreeConsent(false)) : undefined}
+          freeTier={free.enabled}
         />
       )}
       {showCite && <CiteDialog version={VERSION} onClose={closeDialog} />}

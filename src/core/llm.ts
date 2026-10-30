@@ -3,7 +3,7 @@
  * institute gateway. It must allow the app's origin (vLLM `--allowed-origins`, Ollama `OLLAMA_ORIGINS`).
  */
 
-import { type Fetch, request } from './http';
+import { type Fetch, request } from './http.js';
 
 export type EndpointKind = 'openrouter' | 'custom';
 

@@ -15,6 +15,15 @@
  *    devices behind one university network get their own quota;
  *  - the key's own daily spending limit at OpenRouter as the hard cap.
  * Visitors with their own key never reach this server.
+ *
+ * Setup (Vercel; `npm run dev` runs it locally with `.env`):
+ *   OPENROUTER_KEY_FAIRUSE  OpenRouter key with a daily credit limit, used for nothing else (required)
+ *   FREE_TIER_SECRET        random string of at least 32 characters, e.g. `openssl rand -base64 48` (required)
+ *   NCBI_API_KEY, NCBI_EMAIL  raise NCBI's rate limit for the server's own GEO and PubMed requests
+ *   KV_REST_API_URL, KV_REST_API_TOKEN  optional Upstash Redis for exact quotas (two commands per paid
+ *                           action); without it each instance counts in memory. Update legal.html if set.
+ *   FREE_TIER_ORIGINS       allowed browser origins, comma-separated
+ * Without the key or the secret the free tier stays off, and the app asks for a key.
  */
 
 import { createChallenge, randomInt, verifySolution } from 'altcha-lib';
@@ -38,7 +47,7 @@ import {
   PAPERS_PER_DATASET,
   type Paper,
   type Series,
-} from '../src/core';
+} from '../src/core/index.js';
 
 export const LIMITS = { datasets: 1000, explanations: 20, drafts: 20 } as const;
 export type Quota = keyof typeof LIMITS;

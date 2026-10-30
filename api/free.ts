@@ -1,6 +1,6 @@
 /** Vercel Function for the free tier; all logic is in server/freeTier.ts. */
 
-import { configFromEnv, handleFreeTier } from '../server/freeTier';
+import { configFromEnv, handleFreeTier } from '../server/freeTier.js';
 
 const config = configFromEnv(process.env);
 

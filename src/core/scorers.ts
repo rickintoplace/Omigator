@@ -5,8 +5,8 @@
  * identical results at thresholds 70 and 80).
  */
 
-import { type Endpoint, chat, decide, type DecisionQuestion } from './llm';
-import type { Criterion, Dossier } from './types';
+import { type Endpoint, chat, decide, type DecisionQuestion } from './llm.js';
+import type { Criterion, Dossier } from './types.js';
 
 export interface ScoreResult {
   p: Record<string, number>;

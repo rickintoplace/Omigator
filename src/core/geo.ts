@@ -7,8 +7,8 @@
  * HTML/captcha responses.
  */
 
-import { type Fetch, HttpError, request } from './http';
-import type { Sample, Series } from './types';
+import { type Fetch, HttpError, request } from './http.js';
+import type { Sample, Series } from './types.js';
 
 export interface SoftEntity {
   type: string;

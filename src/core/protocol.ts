@@ -1,7 +1,7 @@
 /** Protocols: what a run looks for. Drafted from one sentence of intent, then edited by the user. */
 
-import { type Endpoint, chat, parseJsonObject } from './llm';
-import type { Criterion, CriterionKind, Filters, Protocol } from './types';
+import { type Endpoint, chat, parseJsonObject } from './llm.js';
+import type { Criterion, CriterionKind, Filters, Protocol } from './types.js';
 
 const KINDS: CriterionKind[] = ['require', 'exclude', 'prefer'];
 

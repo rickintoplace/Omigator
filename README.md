@@ -78,12 +78,14 @@ The 187 datasets cost less than one cent to screen and took about a minute.
 
 ## Using it
 
-**In the browser, free.** Open the app and go. Without a key, Omigator screens through its free
-tier: up to 1,000 datasets, 20 explanations and 20 drafts per visitor and day, paid from a key with a
-small daily budget. When that budget is spent, the free tier pauses until the next day.
+**Free, without a key.** Open the app and go. The free tier covers up to 1,000 datasets, 20
+explanations and 20 drafts a day per device, with fixed models. It needs your agreement first: to
+share it fairly, your browser sends a hash of a coarse device signature, as the app explains next
+to the button. When the day's budget is spent, the free tier pauses until the next day.
 
 **With your own key.** Add an [OpenRouter key](https://openrouter.ai/keys) under *Settings* for no
-limits. A few dollars of credit last for many thousands of datasets.
+limits and your choice of models. Nothing is collected then. A few dollars of credit last for many
+thousands of datasets.
 
 **Self-hosted models.** Under *Settings → Your own endpoint* you can point Omigator at any
 OpenAI-compatible server that returns logprobs: vLLM, llama.cpp, Ollama or an institute gateway.
@@ -95,45 +97,8 @@ OLLAMA_ORIGINS=https://omigator.rickinto.place ollama serve
 ```
 
 **Hosting the app yourself.** It is a static site: `npm run build`, then serve `dist/` from any web
-server, GitHub Pages or Vercel. The free tier is optional and needs Vercel (see below); without it,
-visitors use their own key.
-
-### The free tier
-
-The key stays on the server ([`api/free.ts`](api/free.ts), logic in
-[`server/freeTier.ts`](server/freeTier.ts)), and it can only do what Omigator does. The server
-forwards no model requests. It accepts three actions: draft a protocol, screen a dataset and
-explain a dataset. For each, it fetches the GEO record and abstracts itself and builds the prompt
-with the same core as the app, using fixed models and capped inputs. From the browser it takes only
-the request sentence, the checklist and validated accession fields.
-
-Fair use is kept heuristically, and automated use made unattractive and bounded:
-
-- the free tier is used only after the visitor agrees to it, with everything it collects stated
-  next to the button; with an own key nothing of the following happens;
-- a proof-of-work challenge per two-hour session ([ALTCHA](https://altcha.org), solved in the
-  browser, no third party, no cookies);
-- a daily quota per device: the browser sends the SHA-256 of a coarse device signature (platform,
-  language, time zone, screen, pixel ratio, CPU cores, memory class, touch points; no canvas, WebGL,
-  audio or fonts), and the server counts under a keyed hash of it and the IP address, with a key that
-  changes daily. Devices behind one university network get their own quota;
-- the key's own daily limit at OpenRouter as the hard cap.
-
-The counts live in the memory of the server function, so each instance counts on its own and the
-quota is approximate. Spending stays capped by the OpenRouter limit either way.
-
-To run it, set these environment variables in Vercel:
-
-| Variable | |
-|---|---|
-| `OPENROUTER_KEY_FAIRUSE` | OpenRouter key with a daily credit limit, used for nothing else |
-| `FREE_TIER_SECRET` | random string of at least 32 characters (`openssl rand -base64 48`) |
-| `KV_REST_API_URL`, `KV_REST_API_TOKEN` | optional: an Upstash Redis database for exact quotas, used only by paid actions (two commands each); update the privacy notice if you use it |
-| `NCBI_API_KEY`, `NCBI_EMAIL` | optional; raises NCBI's rate limit for the server |
-| `FREE_TIER_ORIGINS` | optional; allowed origins, comma-separated |
-
-Without the key or the secret, the free tier stays off and the app asks for a key. In
-`npm run dev`, the function runs locally with the key from `.env` and counters kept in memory.
+server, GitHub Pages or Vercel. The free tier is optional; how to set it up is described at the top
+of [`server/freeTier.ts`](server/freeTier.ts).
 
 ### Privacy
 
@@ -143,7 +108,8 @@ are bundled; the app makes no requests to Google or analytics services.
 - Dataset metadata (series text, sample annotations, abstracts) is sent to the model provider you choose.
 - API keys go only to that provider. They are kept in the browser only if you tick *Remember keys*.
 - On the free tier, the request text, checklist and accession numbers go through Omigator's server
-  function to OpenRouter. Nothing is stored except a daily usage count under a pseudonym.
+  to OpenRouter. The key stays on that server, which builds every prompt itself from the GEO record.
+  Only a daily usage count is kept, under a pseudonym, in memory.
 - GEO records and model answers are cached in your browser (IndexedDB). Clear the cache in *Settings*.
 
 ## Command line and evaluation

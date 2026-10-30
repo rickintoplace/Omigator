@@ -4,7 +4,7 @@
  * controls and replicate counts are often only stated per sample, not in the series summary.
  */
 
-import type { Candidate, ComputedLine, Design, Dossier, Paper, Sample, SampleGroup, Series } from './types';
+import type { Candidate, ComputedLine, Design, Dossier, Paper, Sample, SampleGroup, Series } from './types.js';
 
 const SINGLE_CELL = /\b(single[- ]cell|single[- ]nucle(?:us|i)|scRNA[- ]?seq|snRNA[- ]?seq|10x genomics|chromium|drop-?seq|in-?drop|smart-?seq\d?|cite-?seq)\b/gi;
 
