@@ -5,6 +5,9 @@ import { Card, Field, Hint } from './ui';
 
 export type InputMode = 'search' | 'list';
 
+/** Most datasets one run screens. */
+export const MAX_SCREEN = 2000;
+
 export interface ProtocolPanelProps {
   protocol: Protocol;
   onChange: (p: Protocol) => void;
@@ -96,7 +99,7 @@ export function ProtocolPanel(props: ProtocolPanelProps) {
               <textarea className="brutal-input mono text-sm min-h-[6rem] resize-y" value={protocol.query} onChange={(e) => set({ query: e.target.value })} />
             </Field>
             <Field label="Screen at most" hint="Datasets are taken in GEO's order; raise this to screen everything that matches.">
-              <input type="number" className="brutal-input" min={1} max={2000} value={props.retmax} onChange={(e) => props.onRetmax(Math.max(1, Math.min(2000, Number(e.target.value) || 1)))} />
+              <input type="number" className="brutal-input" min={1} max={MAX_SCREEN} value={props.retmax} onChange={(e) => props.onRetmax(Math.max(1, Math.min(MAX_SCREEN, Number(e.target.value) || 1)))} />
             </Field>
           </>
         ) : (

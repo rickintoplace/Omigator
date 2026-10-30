@@ -27,9 +27,9 @@
       <section id="privacy" class="space-y-5 scroll-mt-6">
         <h1 class="font-display uppercase text-3xl">Privacy</h1>
         <p>
-          <b>In short:</b> Omigator runs in your browser. It has no accounts, sets no cookies, uses no analytics or tracking, and has no
-          server of its own that receives what you enter. Your browser talks directly to the services listed below, and only when you use
-          the feature that needs them.
+          <b>In short:</b> Omigator runs in your browser. It has no accounts, sets no cookies and uses no analytics or tracking. With your
+          own key, your browser talks directly to the services listed below and Omigator's operator receives nothing you enter. Only the
+          optional free tier (screening without a key) goes through a small server function of Omigator's, described in section 4.
         </p>
 
         <h2>1. Controller</h2>
@@ -59,31 +59,56 @@
           <li><b>Your own model endpoint</b>, if you configure one: the same data as for OpenRouter, sent to the address you entered.</li>
         </ul>
         <p>
-          These transfers happen because you start them (search, draft, screen, explain). Legal basis: Art. 6(1)(b) GDPR. The operator of this
-          website receives none of this data.
+          These transfers happen because you start them (search, draft, screen, explain). Legal basis: Art. 6(1)(b) GDPR. When you use your
+          own key or endpoint, the operator of this website receives none of this data.
         </p>
 
-        <h2>4. Storage in your browser</h2>
+        <h2>4. Free tier (screening without a key)</h2>
         <p>
-          Omigator keeps settings, your current protocol, your 👍/👎 marks and saved runs in your browser (localStorage, IndexedDB), and caches
+          If you screen without entering a key, your browser sends your request text, your checklist and the GEO and PubMed accession numbers
+          of the datasets to a server function of Omigator's at Vercel (section 2). It fetches the public GEO records and abstracts itself and
+          passes them, with your request text and checklist, to OpenRouter (section 3) using Omigator's key. Nothing of this is stored; the
+          answer goes back to your browser.
+        </p>
+        <p>
+          The free tier is used only after you agree to it in the app. To share it fairly between devices and to make automated use costly,
+          your browser then does two things. It solves a small computing task (proof of work, ALTCHA, computed in your browser, no third party,
+          no cookies). And it computes a coarse signature of your device from these properties: platform, language, time zone, screen size
+          and colour depth, pixel ratio, number of CPU cores, memory class and number of touch points. Only a SHA-256 hash of this signature
+          is sent, no canvas, WebGL, audio or font probing is used, and the signature is deliberately not unique: many devices share it.
+        </p>
+        <p>
+          The server combines the hash with your IP address under a key that changes every day, so the result cannot be traced back to the
+          device or the address, nor linked from one day to the next. Under this pseudonym it counts the datasets, explanations and drafts you
+          used today, in the memory of the server function only; the counts are discarded within 24 hours. Your browser stores only your
+          choice to use the free tier. Legal basis: your consent (§ 25(1) TDDDG, Art. 6(1)(a) GDPR) for computing and sending the device
+          signature, and Art. 6(1)(b) GDPR for providing the screening you request. You can withdraw your consent at any time under Settings
+          or by clearing this site's data; with your own key, none of this is collected.
+        </p>
+
+        <h2>5. Storage in your browser</h2>
+        <p>
+          Omigator keeps settings, your current protocol, your 👍/👎 marks, saved runs and, if you agreed to it, your choice to use the free tier
+          in your browser (localStorage, IndexedDB), and caches
           GEO records and model answers there to avoid paying twice. API keys are stored only if you tick “Remember keys on this device”. This
           data never leaves your device unless you share a link. You can delete it under Settings (cache), by removing saved runs, or by
           clearing the site data in your browser.
         </p>
 
-        <h2>5. Share links</h2>
+        <h2>6. Share links</h2>
         <p>
           A share link contains the run itself after the “#”: protocol, GEO accessions, model probabilities, your marks and, if short enough,
           explanations. Browsers do not send this part of a link to any server. Anyone you give the link to can read its contents.
         </p>
 
-        <h2>6. Your rights</h2>
+        <h2>7. Your rights</h2>
         <p>
           You have the right to access, rectification, erasure, restriction of processing, objection and data portability (Art. 15–21 GDPR),
-          and to lodge a complaint with a supervisory authority (Art. 77 GDPR). As this website stores no personal data on servers of its own,
-          requests mostly concern the hosting logs described in section 2.
+          and to lodge a complaint with a supervisory authority (Art. 77 GDPR). Apart from the daily
+          free-tier counts under a daily pseudonym (section 4), this website stores no personal data on servers of its own, so requests mostly
+          concern the hosting logs described in section 2.
         </p>
-        <p class="text-sm text-[var(--color-muted)]">Last updated: 22 October 2026.</p>
+        <p class="text-sm text-[var(--color-muted)]">Last updated: 30 October 2026.</p>
       </section>
 
       <section id="imprint" class="space-y-5 scroll-mt-6">

@@ -11,6 +11,8 @@ import {
   familyFileUrl,
   fitPlatt,
   inferDesign,
+  judgeSupport,
+  locateQuote,
   normalizeCriteria,
   normalizeGseList,
   parseJsonObject,
@@ -18,6 +20,7 @@ import {
   plattProbability,
   rankingMetrics,
   recallEstimate,
+  type Series,
   seriesFromSoft,
   yesProbability,
 } from '../src/core';
@@ -71,9 +74,97 @@ describe('GEO SOFT', () => {
     expect(dossier.text.length).toBeLessThan(12_000);
   });
 
+  it('locates quotes in the record and labels computed lines as computed', () => {
+    const papers = parsePubmedXml(pubmed);
+    const dossier = buildDossier(candidate, series, papers);
+    // A sample's own field is record text, found on that sample's page.
+    expect(locateQuote('stress: Hypoxia', dossier)).toMatchObject({ verified: true, where: expect.stringMatching(/^GSM\d+$/) });
+    // Labels the dossier adds in front of record text do not stop the match.
+    expect(locateQuote(`Title: ${series.title}`, dossier)).toMatchObject({ verified: true, where: 'series' });
+    const sentence = papers[0].abstract.split('. ')[1];
+    expect(locateQuote(sentence, dossier)).toMatchObject({ verified: true, where: 'PMID 25351346' });
+    // Counts and scans are Omigator's, not the record's, and point to the samples behind them.
+    const group = dossier.computed!.find((l) => l.text.startsWith('- ') && l.text.includes('Hypoxia'))!;
+    const q = locateQuote(group.text.slice(2), dossier);
+    expect(q).toMatchObject({ verified: true, where: 'computed' });
+    expect(q.gsms!.length).toBe(Number(group.text.match(/\(n=(\d+)\)$/)![1]));
+    expect(locateQuote('Single-cell indicators: none found', dossier).where).toBe('computed');
+    expect(locateQuote('Cells were exposed to 5% O2 for 72 hours in a sealed chamber', dossier)).toMatchObject({ verified: false });
+  });
+
+  it('judges only verdicts backed by found quotes, and words a "no" as a negation', async () => {
+    const dossier = buildDossier(candidate, series, parsePubmedXml(pubmed));
+    const criteria: Criterion[] = [
+      { id: 'hypoxia', kind: 'require', text: 'Cells were cultured under hypoxia.' },
+      { id: 'single_cell', kind: 'exclude', text: 'The dataset is single-cell RNA-seq.' },
+      { id: 'invented', kind: 'require', text: 'Cells were treated with DMOG.' },
+      { id: 'unclear', kind: 'prefer', text: 'Raw counts are provided.' },
+    ];
+    const ex = (verdict: 'yes' | 'no' | 'unclear', quotes: string[]) => ({ verdict, disagrees: false, quotes: quotes.map((t) => locateQuote(t, dossier)) });
+    const explanation = {
+      summary: '',
+      model: 'm',
+      cost: 0,
+      criteria: {
+        hypoxia: ex('yes', ['stress: Hypoxia']),
+        single_cell: ex('no', ['Single-cell indicators: none found']),
+        invented: ex('yes', ['cells were treated with 1 mM DMOG for 24 h']),
+        unclear: ex('unclear', []),
+      },
+    };
+    const seen: { id: string; claim: string; quote: string }[] = [];
+    const judge = {
+      judge: async (items: { id: string; claim: string; quote: string }[]) => {
+        seen.push(...items);
+        return items.map(() => ({ class: 'entailed' as const, confidence: 0.9, reasons: [] }));
+      },
+    };
+    const support = await judgeSupport(explanation, dossier, criteria, { judge, id: 'fake' });
+    expect(Object.keys(support).sort()).toEqual(['hypoxia', 'single_cell']);
+    expect(seen.find((s) => s.id === 'single_cell')!.claim).toBe('This does not hold for the dataset: The dataset is single-cell RNA-seq.');
+    expect(support.hypoxia).toEqual({ class: 'entailed', confidence: 0.9, judge: 'fake' });
+  });
+
   it('builds FTP family file URLs', () => {
     expect(familyFileUrl('GSE52695')).toBe('https://ftp.ncbi.nlm.nih.gov/geo/series/GSE52nnn/GSE52695/soft/GSE52695_family.soft.gz');
     expect(familyFileUrl('GSE123')).toBe('https://ftp.ncbi.nlm.nih.gov/geo/series/GSEnnn/GSE123/soft/GSE123_family.soft.gz');
+  });
+});
+
+describe('replicate fields', () => {
+  const series = (rows: Record<string, string>[]): Series => ({
+    gse: 'GSE1', title: '', summary: '', overallDesign: '', types: [], pmids: [], platforms: [], supplementaryFiles: [],
+    superSeriesOf: [], subSeriesOf: [], origin: 'ftp',
+    samples: rows.map((characteristics, i) => ({ gsm: `GSM${i + 1}`, title: '', source: 'macrophages', organisms: [], characteristics })),
+  });
+  const crossed = (donors: string[]) =>
+    ['LPS', 'Unt'].flatMap((treatment) => ['2h', '24h'].flatMap((time) => donors.map((donor) => ({ treatment, time, donor }))));
+
+  it('pools donors crossed with the conditions instead of splitting groups to n = 1', () => {
+    const d = inferDesign(series(crossed(['D1', 'D2', 'D3'])));
+    expect(d.varyingKeys).toEqual(['treatment', 'time']);
+    expect(d.groups.map((g) => g.count)).toEqual([3, 3, 3, 3]);
+    expect(d.replicates).toEqual({ donor: ['D1', 'D2', 'D3'] });
+    const text = buildDossier({ ...candidate, gse: 'GSE1' }, series(crossed(['D1', 'D2', 'D3'])), []).text;
+    expect(text).toContain('- treatment: LPS | time: 2h (n=3)');
+    expect(text).toContain('Replicates by donor: 3 values (D1, D2, D3); the groups above pool them, so n counts donor values');
+  });
+
+  it('keeps a field named like a replicate when it is a condition', () => {
+    const rows = ['healthy', 'healthy', 'diseased', 'diseased'].map((patient) => ({ patient, tissue: 'liver' }));
+    const d = inferDesign(series(rows));
+    expect(d.varyingKeys).toEqual(['patient']);
+    expect(d.replicates).toEqual({});
+  });
+
+  it('pools donors nested in conditions and donors of a single condition', () => {
+    const nested = inferDesign(series([1, 2, 3, 4, 5, 6].map((i) => ({ treatment: i <= 3 ? 'Unt' : 'LPS', donor: `D${i}` }))));
+    expect(nested.varyingKeys).toEqual(['treatment']);
+    expect(nested.groups.map((g) => g.count)).toEqual([3, 3]);
+    const single = inferDesign(series([1, 2, 3].map((i) => ({ donor: `D${i}`, treatment: 'LPS' }))));
+    expect(single.varyingKeys).toEqual([]);
+    expect(single.groups).toHaveLength(1);
+    expect(single.groups[0].count).toBe(3);
   });
 });
 

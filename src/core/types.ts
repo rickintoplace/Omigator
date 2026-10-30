@@ -93,6 +93,15 @@ export interface Paper {
 export interface SampleGroup {
   values: Record<string, string>;
   count: number;
+  /** The samples in this group (absent in runs saved before v0.3). */
+  gsms?: string[];
+}
+
+/** A dossier line Omigator computed from sample records (groups, counts, scans), not text from the record. */
+export interface ComputedLine {
+  text: string;
+  /** Samples the line was computed from. */
+  gsms: string[];
 }
 
 export interface Design {
@@ -101,6 +110,8 @@ export interface Design {
   shared: Record<string, string>;
   /** Keys whose value differs for (almost) every sample, e.g. donor ids. Listed, not grouped. */
   identifierKeys: string[];
+  /** Fields that number replicates (donor, patient, batch …) with their values; pooled, not grouped. Absent before v0.3. */
+  replicates?: Record<string, string[]>;
   libraryStrategies: Record<string, number>;
   singleCellHints: string[];
 }
@@ -112,6 +123,8 @@ export interface Dossier {
   design?: Design;
   papers: Paper[];
   text: string;
+  /** Lines of `text` that Omigator computed; quotes from them are labelled as computed, not as record text. */
+  computed?: ComputedLine[];
   warnings: string[];
 }
 
@@ -133,9 +146,22 @@ export type Verdict = 'yes' | 'no' | 'unclear';
 
 export interface QuoteCheck {
   text: string;
-  /** VeriQuote match score against the dossier text: 1 = literal hit. */
+  /** VeriQuote match score where the quote was found: 1 = literal hit. */
   score: number;
+  /** Found in the record (`where` is a source) or in a computed line (`where` is "computed"). */
   verified: boolean;
+  /** "series", a GSM accession, "PMID <id>", or "computed". Absent when the quote was not found. */
+  where?: string;
+  /** For computed lines: the samples the line was computed from. */
+  gsms?: string[];
+}
+
+/** VeriQuote's judge on whether the quotes support the verdict. */
+export interface SupportCheck {
+  class: 'entailed' | 'partially_entailed' | 'overstated' | 'insufficient' | 'contradicted' | 'error';
+  /** Degree of support in [0, 1]; null when the judge failed. */
+  confidence: number | null;
+  judge: string;
 }
 
 export interface CriterionExplanation {
@@ -144,6 +170,8 @@ export interface CriterionExplanation {
   note?: string;
   /** True when the explanation contradicts the screening probability. */
   disagrees: boolean;
+  /** Absent when no judge ran, or when there was nothing to judge (unclear, or no verified quote). */
+  support?: SupportCheck;
 }
 
 export interface Explanation {

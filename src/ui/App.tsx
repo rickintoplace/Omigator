@@ -1,14 +1,15 @@
-import { Download, ExternalLink, FileJson, Link2, LoaderCircle, Lock, MessageSquareQuote, Play, Plus, Quote, Settings as SettingsIcon, Square } from 'lucide-react';
+import { Download, ExternalLink, FileJson, Link2, LoaderCircle, Lock, MessageSquareQuote, Play, Plus, Quote, Settings as SettingsIcon, Square, TriangleAlert } from 'lucide-react';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { buildGdsTerm, type DatasetResult, type Decision, draftProtocol, fitPlatt, loadDossier, normalizeGseList, plattProbability, type Protocol } from '../core';
+import { buildGdsTerm, type DatasetResult, type Decision, draftProtocol, explainResult, fitPlatt, loadDossier, normalizeGseList, plattProbability, type Protocol } from '../core';
 import { CiteDialog, GITHUB_URL } from './components/CiteDialog';
 import { DnaProgress } from './components/DnaProgress';
 import { HeaderMenu } from './components/HeaderMenu';
 import { InsightsView } from './components/InsightsView';
 import { Logo } from './components/Logo';
 import { KeyPrompt } from './components/KeyPrompt';
-import { type InputMode, ProtocolPanel } from './components/ProtocolPanel';
+import { FreeTierScorer, freeDraft, freeExplain, loadFreeConsent, saveFreeConsent, useFreeTier } from './freeTier';
+import { type InputMode, MAX_SCREEN, ProtocolPanel } from './components/ProtocolPanel';
 import { ResultRow } from './components/ResultRow';
 import { SettingsDialog } from './components/SettingsDialog';
 import { StartScreen } from './components/StartScreen';
@@ -17,7 +18,7 @@ import { loadDemo } from './demo';
 import { exportCsv, exportJson } from './export';
 import { listRuns, type SavedRunMeta } from './idbCache';
 import { fetchRun, newRunId, openShared, shareUrl, storeRun } from './persistence';
-import { chatTarget, isReady, type Keys, load, loadKeys, loadSettings, makeNcbi, makeScorer, save, saveKeys, saveSettings, type Settings } from './settings';
+import { chatTarget, isReady, type Keys, load, loadKeys, loadSettings, makeNcbi, makeScorer, save, saveKeys, saveSettings, type Settings, supportJudge } from './settings';
 import { useHeldOrder } from './useHeldOrder';
 import { useRun } from './useRun';
 
@@ -254,16 +255,30 @@ export default function App() {
     };
   }, [workspace, mode, protocol.query, protocol.filters.organism, protocol.filters.minDate, protocol.filters.maxDate]);
 
-  const scorerReady = isReady(keys, settings);
-  const chatReady = (() => {
-    try {
-      chatTarget(keys, settings);
-      return true;
-    } catch {
-      return false;
-    }
-  })();
   const needsOpenRouterKey = !keys.openrouter.trim() && settings.scoring !== 'custom-logprobs';
+  const free = useFreeTier();
+  const [freeConsent, setFreeConsent] = useState(loadFreeConsent);
+  // Without an own key or endpoint, the free tier is offered; once agreed to, it screens, drafts and explains.
+  const noOwnSetup = needsOpenRouterKey && settings.scoring === 'openrouter-decisions' && settings.chatEndpoint === 'openrouter';
+  const useFree = free.enabled && noOwnSetup && freeConsent;
+  const offerFree = free.enabled && noOwnSetup && !freeConsent;
+  // Known once the server has answered a screening request today; until then unknown.
+  const datasetsLeft = free.left?.datasets;
+  const agreeToFree = () => {
+    saveFreeConsent(true);
+    setFreeConsent(true);
+  };
+  const scorerReady = useFree || isReady(keys, settings);
+  const chatReady =
+    useFree ||
+    (() => {
+      try {
+        chatTarget(keys, settings);
+        return true;
+      } catch {
+        return false;
+      }
+    })();
 
   const toScreen = mode === 'search' ? Math.min(hitCount.count ?? retmax, retmax) : normalizeGseList(gseText).length;
   const blocker = useMemo(() => {
@@ -271,8 +286,13 @@ export default function App() {
     if (mode === 'search' && !protocol.query.trim()) return 'Enter a GEO search.';
     if (mode === 'search' && hitCount.count === 0) return 'The search matches no series.';
     if (mode === 'list' && !toScreen) return 'Paste at least one GSE accession.';
+    if (useFree && datasetsLeft !== undefined && toScreen > datasetsLeft) {
+      return datasetsLeft
+        ? `The free tier has ${datasetsLeft.toLocaleString()} datasets left today. Lower “Screen at most”, or add your own key in Settings.`
+        : 'The free tier is used up for today. Add your own OpenRouter key in Settings to go on.';
+    }
     return undefined;
-  }, [protocol, mode, toScreen, hitCount.count]);
+  }, [protocol, mode, toScreen, hitCount.count, useFree, datasetsLeft]);
 
   const saveOpenRouterKey = (key: string, remember: boolean) => {
     const next = { ...keys, openrouter: key };
@@ -281,12 +301,12 @@ export default function App() {
     return next;
   };
 
-  const draft = async (withKeys: Keys = keys) => {
+  const draft = async (withKeys: Keys = keys, viaFreeTier = useFree) => {
     setDrafting(true);
     setDraftError(undefined);
     try {
-      const { ep, model } = chatTarget(withKeys, settings);
-      const { protocol: drafted } = await draftProtocol(protocol.intent, ep, model);
+      const viaFree = viaFreeTier && !withKeys.openrouter.trim();
+      const { protocol: drafted } = viaFree ? await freeDraft(protocol.intent) : await draftProtocol(protocol.intent, chatTarget(withKeys, settings).ep, chatTarget(withKeys, settings).model);
       setProtocol({ ...drafted, filters: { ...protocol.filters, ...drafted.filters } });
       setMode('search');
       if (!workspace) startFresh();
@@ -297,14 +317,14 @@ export default function App() {
     }
   };
 
-  const screen = (withKeys: Keys = keys) => {
+  const screen = (withKeys: Keys = keys, viaFreeTier = useFree) => {
     if (blocker) return;
     setRunId(undefined);
     runHashRef.current = '';
     navigate({ tab: 'results' }, 'replace');
     setView('all');
     setExpanded(new Set());
-    start(protocol, mode === 'search' ? { mode, retmax } : { mode, gses: normalizeGseList(gseText) }, makeNcbi(withKeys, settings), makeScorer(withKeys, settings));
+    start(protocol, mode === 'search' ? { mode, retmax } : { mode, gses: normalizeGseList(gseText) }, makeNcbi(withKeys, settings), viaFreeTier && !withKeys.openrouter.trim() ? new FreeTierScorer() : makeScorer(withKeys, settings));
   };
 
   async function openDemo() {
@@ -406,10 +426,16 @@ export default function App() {
   const canExplain = Boolean(demo) || chatReady;
   const explainTargets = async (rs: DatasetResult[]) => {
     if (demo) return explainMany(rs);
-    const { ep, model } = chatTarget(keys, settings);
+    let explainOne: (r: DatasetResult) => Promise<DatasetResult>;
+    if (useFree) explainOne = (r) => freeExplain(r, protocol);
+    else {
+      const { ep, model } = chatTarget(keys, settings);
+      const judge = supportJudge(keys, settings);
+      explainOne = (r) => explainResult(r, protocol, ep, model, { cache: cache.current, judge });
+    }
     // Shared and saved runs load the evidence first; explanations quote from it.
     const ready = await Promise.all(rs.map((r) => (r.dossier ? r : loadDossier(r, makeNcbi(keys, settings), { cache: cache.current }).then((x) => (patch(x), x)))));
-    return explainMany(ready, ep, model);
+    return explainMany(ready, explainOne);
   };
   const topToExplain = results.filter((r) => r.screening && !r.explanation && (!demo || demo.explanations[r.gse])).slice(0, 10);
 
@@ -424,7 +450,13 @@ export default function App() {
       </button>
     </div>
   ) : !scorerReady && needsOpenRouterKey ? (
-    <KeyPrompt reason="Screening uses a decision model." remember={settings.rememberKeys} onSave={(k, r) => screen(saveOpenRouterKey(k, r))} onOpenSettings={openSettings} />
+    <KeyPrompt
+      reason="Screening uses a decision model."
+      remember={settings.rememberKeys}
+      onSave={(k, r) => screen(saveOpenRouterKey(k, r))}
+      onOpenSettings={openSettings}
+      free={offerFree ? { limits: free.limits, onUse: () => (agreeToFree(), screen(keys, true)) } : undefined}
+    />
   ) : (
     <div className="space-y-1.5">
       <button className="brutal-button button-primary w-full py-3 text-base" onClick={() => (scorerReady ? screen() : openSettings())} disabled={Boolean(blocker)}>
@@ -433,16 +465,29 @@ export default function App() {
       </button>
       <p className="text-xs text-center text-[var(--color-muted)]">
         {blocker ??
-          (scorerReady
-            ? `About ${usd(toScreen * COST_PER_DATASET)} with ${settings.scoring === 'openrouter-decisions' ? settings.decisionModel.split('/')[1] : 'your model'}.`
-            : 'Finish the setup in Settings.')}
+          (useFree
+            ? datasetsLeft !== undefined
+              ? `Free, no key needed: ${datasetsLeft.toLocaleString()} of ${free.limits?.datasets.toLocaleString()} datasets left today.`
+              : `Free, no key needed: up to ${free.limits?.datasets.toLocaleString() ?? '1,000'} datasets per day.`
+            : scorerReady
+              ? `About ${usd(toScreen * COST_PER_DATASET)} with ${settings.scoring === 'openrouter-decisions' ? settings.decisionModel.split('/')[1] : 'your model'}.`
+              : 'Finish the setup in Settings.')}
       </p>
     </div>
   );
 
   return (
     <div className="h-screen flex flex-col bg-[var(--color-paper)]">
-      {showSettings && <SettingsDialog settings={settings} keys={keys} onSettings={setSettings} onKeys={setKeys} onClose={closeDialog} />}
+      {showSettings && (
+        <SettingsDialog
+          settings={settings}
+          keys={keys}
+          onSettings={setSettings}
+          onKeys={setKeys}
+          onClose={closeDialog}
+          onWithdrawFreeTier={freeConsent ? () => (saveFreeConsent(false), setFreeConsent(false)) : undefined}
+        />
+      )}
       {showCite && <CiteDialog version={VERSION} onClose={closeDialog} />}
 
       <header className="site-header flex items-center gap-2 sm:gap-3 px-4 py-2 brutal-border-b bg-[var(--color-accent)] shrink-0">
@@ -484,6 +529,7 @@ export default function App() {
             drafting={drafting}
             draftError={draftError}
             hasKey={chatReady}
+            free={offerFree ? { limits: free.limits, onUse: () => (agreeToFree(), protocol.intent.trim() && draft(keys, true)) } : undefined}
             rememberKeys={settings.rememberKeys}
             onKey={(k, r) => {
               const next = saveOpenRouterKey(k, r);
@@ -588,7 +634,14 @@ export default function App() {
               ) : tab === 'insights' ? (
                 <InsightsView results={results} labels={labels} goldText={goldText} onGoldText={setGoldText} onAudit={startAudit} />
               ) : !results.length && !running ? (
-                <ReadyPanel protocol={protocol} toScreen={toScreen} mode={mode} hitCount={hitCount.count} error={state.error}>
+                <ReadyPanel
+                  protocol={protocol}
+                  toScreen={toScreen}
+                  mode={mode}
+                  hitCount={hitCount.count}
+                  error={state.error}
+                  onScreenAll={() => setRetmax(Math.min(hitCount.count ?? retmax, MAX_SCREEN))}
+                >
                   {runControl}
                 </ReadyPanel>
               ) : (
@@ -749,6 +802,7 @@ function ReadyPanel({
   mode,
   hitCount,
   error,
+  onScreenAll,
   children,
 }: {
   protocol: Protocol;
@@ -756,9 +810,12 @@ function ReadyPanel({
   mode: InputMode;
   hitCount?: number;
   error?: string;
+  onScreenAll: () => void;
   children: ReactNode;
 }) {
   const n = (k: string) => protocol.criteria.filter((c) => c.kind === k).length;
+  // Datasets beyond the limit are never screened; a relevant one there is missed without a trace.
+  const left = mode === 'search' && hitCount !== undefined ? hitCount - toScreen : 0;
   return (
     <div className="p-6 md:p-10">
       <div className="max-w-xl card brutal-shadow p-6 space-y-5">
@@ -781,6 +838,24 @@ function ReadyPanel({
             <b>Result:</b> a ranked list with include / unclear / exclude and the probability behind each line.
           </li>
         </ul>
+        {left > 0 && (
+          <div className="p-3 brutal-border bg-[var(--color-warn)] text-sm space-y-2">
+            <p className="flex gap-2">
+              <TriangleAlert className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>
+                <b>{left.toLocaleString()} matching series will not be screened.</b> Omigator takes them in GEO's order, so datasets you need
+                may be among the ones left out.
+              </span>
+            </p>
+            {hitCount! <= MAX_SCREEN ? (
+              <button className="brutal-button px-3 py-1.5 text-sm" onClick={onScreenAll}>
+                Screen all {hitCount!.toLocaleString()} (about {usd(hitCount! * COST_PER_DATASET)})
+              </button>
+            ) : (
+              <p>One run screens at most {MAX_SCREEN.toLocaleString()}. Narrow the search or the filters to cover everything that matches.</p>
+            )}
+          </div>
+        )}
         <p className="text-sm text-[var(--color-muted)]">Edit anything on the left; the checklist matters most. “Redraft” writes a new one from your request.</p>
         {children}
       </div>

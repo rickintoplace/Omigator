@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { ChevronRight, CircleAlert, CircleCheck, ExternalLink, LoaderCircle, MessageSquareQuote, RotateCcw, ThumbsDown, ThumbsUp } from 'lucide-react';
-import { type Criterion, type DatasetResult, familyFileUrl, passProbability, type Protocol } from '../../core';
+import { ChevronRight, CircleAlert, CircleCheck, ExternalLink, LoaderCircle, MessageSquareQuote, RotateCcw, Sigma, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { type Criterion, type DatasetResult, familyFileUrl, passProbability, type Protocol, type QuoteCheck, type SupportCheck } from '../../core';
 import { DecisionChip, passColor, pct, ProbBar } from './ui';
 
 export interface ResultRowProps {
@@ -157,15 +157,14 @@ export function ResultRow(props: ResultRowProps) {
                               </div>
                             )}
                             {ex.quotes.map((q, i) => (
-                              <blockquote key={i} className={`text-xs pl-2 border-l-4 ${q.verified ? 'border-[var(--color-pass)]' : 'border-[var(--color-danger)]'}`}>
-                                “{q.text}”{' '}
-                                {q.verified ? (
-                                  <span className="inline-flex items-center gap-0.5 text-[11px] text-[var(--color-muted)]"><CircleCheck className="w-3 h-3" /> in record</span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-[var(--color-danger-ink)]"><CircleAlert className="w-3 h-3" /> not found in record</span>
-                                )}
+                              <blockquote
+                                key={i}
+                                className={`text-xs pl-2 border-l-4 ${!q.verified ? 'border-[var(--color-danger)]' : q.where === 'computed' ? 'border-[var(--color-line)]' : 'border-[var(--color-pass)]'}`}
+                              >
+                                “{q.text}” <QuoteSource q={q} gse={r.gse} />
                               </blockquote>
                             ))}
+                            {ex.support && <SupportLine support={ex.support} verdict={ex.verdict} />}
                             {ex.note && <div className="text-xs text-[var(--color-muted)]">{ex.note}</div>}
                           </div>
                         )}
@@ -213,6 +212,66 @@ export function ResultRow(props: ResultRowProps) {
   );
 }
 
+const geoUrl = (acc: string) => `https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=${acc}`;
+
+/** Where a quote was found: a link to that part of the record, "computed from n samples", or not found. */
+function QuoteSource({ q, gse }: { q: QuoteCheck; gse: string }) {
+  const tag = 'inline-flex items-center gap-0.5 text-[11px] text-[var(--color-muted)]';
+  if (!q.verified) {
+    return <span className={`${tag} font-bold text-[var(--color-danger-ink)]`}><CircleAlert className="w-3 h-3" /> not found in the record</span>;
+  }
+  if (q.where === 'computed') {
+    const gsms = q.gsms ?? [];
+    return (
+      <span className={tag} title={gsms.length ? `Omigator counted this from ${gsms.join(', ')}` : 'Omigator computed this line'}>
+        <Sigma className="w-3 h-3" /> computed{gsms.length ? ` from ${gsms.length} sample${gsms.length > 1 ? 's' : ''}` : ''}
+        {gsms.length > 0 && gsms.length <= 4 && (
+          <>
+            {' ('}
+            {gsms.map((g, i) => (
+              <span key={g}>
+                {i > 0 && ', '}
+                <a className="link" href={geoUrl(g)} target="_blank" rel="noreferrer">{g}</a>
+              </span>
+            ))}
+            {')'}
+          </>
+        )}
+      </span>
+    );
+  }
+  if (!q.where) return <span className={tag}><CircleCheck className="w-3 h-3" /> in the dossier</span>;
+  const pmid = q.where.startsWith('PMID ') ? q.where.slice(5) : undefined;
+  const href = pmid ? `https://pubmed.ncbi.nlm.nih.gov/${pmid}/` : geoUrl(q.where === 'series' ? gse : q.where);
+  return (
+    <span className={tag}>
+      <CircleCheck className="w-3 h-3" /> in{' '}
+      <a className="link" href={href} target="_blank" rel="noreferrer">{pmid ? `abstract (PMID ${pmid})` : q.where === 'series' ? gse : q.where}</a>
+    </span>
+  );
+}
+
+const SUPPORT: Record<SupportCheck['class'], { text: string; tone: 'ok' | 'warn' | 'bad' | 'muted' }> = {
+  entailed: { text: 'The quotes support this verdict.', tone: 'ok' },
+  partially_entailed: { text: 'The quotes support this verdict only in part.', tone: 'warn' },
+  overstated: { text: 'The verdict says more than the quotes show.', tone: 'warn' },
+  insufficient: { text: 'The quotes do not show this verdict. Check this one.', tone: 'bad' },
+  contradicted: { text: 'The quotes contradict this verdict. Check this one.', tone: 'bad' },
+  error: { text: 'The support check failed; the quotes were not judged.', tone: 'muted' },
+};
+
+/** VeriQuote's second check: do the quotes support the verdict? */
+function SupportLine({ support, verdict }: { support: SupportCheck; verdict: string }) {
+  const s = SUPPORT[support.class];
+  const color = { ok: 'text-[var(--color-muted)]', warn: 'font-semibold', bad: 'font-bold text-[var(--color-danger-ink)]', muted: 'text-[var(--color-muted)]' }[s.tone];
+  const title = `Verdict “${verdict}” judged by ${support.judge}${support.confidence !== null ? `, support ${pct(support.confidence)}` : ''}`;
+  return (
+    <div className={`text-xs inline-flex items-center gap-1 ${color}`} title={title}>
+      {s.tone === 'ok' ? <CircleCheck className="w-3 h-3" /> : <CircleAlert className="w-3 h-3" />} {s.text}
+    </div>
+  );
+}
+
 function DesignTable({ result }: { result: DatasetResult }) {
   const d = result.dossier!.design!;
   const shared = Object.entries(d.shared);
@@ -246,6 +305,13 @@ function DesignTable({ result }: { result: DatasetResult }) {
       ) : (
         <p className="text-xs text-[var(--color-muted)]">All samples share the same annotations.</p>
       )}
+      {Object.entries(d.replicates ?? {}).map(([k, values]) => (
+        <p key={k} className="text-xs">
+          <span className="font-bold">Replicates by {k}: </span>
+          {values.length} ({values.slice(0, 8).join(', ')}
+          {values.length > 8 ? ', …' : ''}), pooled in each group, so n counts them.
+        </p>
+      ))}
       {shared.length > 0 && (
         <p className="text-xs">
           <span className="font-bold">All samples: </span>

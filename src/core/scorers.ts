@@ -6,7 +6,7 @@
  */
 
 import { type Endpoint, chat, decide, type DecisionQuestion } from './llm';
-import type { Criterion } from './types';
+import type { Criterion, Dossier } from './types';
 
 export interface ScoreResult {
   p: Record<string, number>;
@@ -18,7 +18,8 @@ export interface Scorer {
   /** Stable description used in cache keys and the run manifest. */
   readonly id: string;
   readonly model: string;
-  score(dossier: string, criteria: Criterion[], signal?: AbortSignal): Promise<ScoreResult>;
+  /** `record` is the full dossier, for scorers that rebuild the prompt elsewhere (the free tier). */
+  score(dossier: string, criteria: Criterion[], signal?: AbortSignal, record?: Dossier): Promise<ScoreResult>;
 }
 
 const CONTEXT =

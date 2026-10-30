@@ -3,7 +3,6 @@ import {
   type Cache,
   type Candidate,
   type DatasetResult,
-  explainResult,
   isAbort,
   mapPool,
   noCache,
@@ -16,7 +15,6 @@ import {
   sleep,
   sortResults,
   type Ncbi,
-  type Endpoint,
 } from '../core';
 import type { DemoRecording } from './demo';
 import { createIdbCache } from './idbCache';
@@ -178,10 +176,9 @@ export function useRun(appVersion: string) {
     }
   };
 
+  /** Explains with `explainOne` (own key or free tier); in the demo, shows the recorded explanations. */
   const explainMany = useCallback(
-    async (targets: DatasetResult[], ep?: Endpoint, model?: string) => {
-      const protocol = state.protocol;
-      if (!protocol) return;
+    async (targets: DatasetResult[], explainOne?: (t: DatasetResult) => Promise<DatasetResult>) => {
       const demo = state.demo;
       if (demo) {
         await withBusy(targets.map((t) => t.gse), async () => {
@@ -190,13 +187,13 @@ export function useRun(appVersion: string) {
         });
         return;
       }
-      if (!ep || !model) return;
+      if (!explainOne) return;
       await withBusy(
         targets.map((t) => t.gse),
         async () => {
           await mapPool(targets, 4, async (t) => {
             try {
-              update(await explainResult(t, protocol, ep, model, { cache: cacheRef.current }));
+              update(await explainOne(t));
             } catch (err) {
               log(`Explain ${t.gse}: ${(err as Error).message}`);
             }
@@ -204,7 +201,7 @@ export function useRun(appVersion: string) {
         },
       );
     },
-    [state.protocol, state.demo],
+    [state.demo],
   );
 
   const retry = useCallback(

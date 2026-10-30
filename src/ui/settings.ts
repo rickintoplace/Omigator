@@ -1,5 +1,6 @@
 /** Connection and model settings, persisted per browser. Keys are stored only when the user opts in. */
 
+import { ChatCompletionsJudge, DecisionsJudge, type EntailmentJudge } from 'veriquote';
 import {
   customEndpoint,
   DecisionScorer,
@@ -114,6 +115,21 @@ export function chatTarget(keys: Keys, s: Settings): { ep: Endpoint; model: stri
     return { ep: custom(keys, s), model: s.customModel.trim() };
   }
   return { ep: openrouter(needKey(keys.openrouter, 'OpenRouter')), model: s.chatModel };
+}
+
+/**
+ * VeriQuote's support judge for explanations: the decision model when there is an OpenRouter key,
+ * otherwise the own endpoint as a chat judge. Undefined when neither is configured.
+ */
+export function supportJudge(keys: Keys, s: Settings): { judge: EntailmentJudge; id: string } | undefined {
+  if (keys.openrouter.trim()) {
+    return { judge: new DecisionsJudge({ apiKey: keys.openrouter.trim(), model: s.decisionModel }), id: `decisions:${s.decisionModel}` };
+  }
+  if (s.chatEndpoint === 'custom' && s.customBaseUrl.trim() && s.customModel.trim()) {
+    const ep = custom(keys, s);
+    return { judge: new ChatCompletionsJudge({ baseUrl: ep.baseUrl, apiKey: ep.apiKey, model: s.customModel.trim() }), id: `chat:${s.customModel.trim()}` };
+  }
+  return undefined;
 }
 
 /** True when the configured scoring method has what it needs. */

@@ -7,9 +7,11 @@
  */
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { DecisionsJudge } from 'veriquote';
 import {
   type Cache,
   DEFAULT_CHAT_MODEL,
+  DEFAULT_DECISION_MODEL,
   DecisionScorer,
   type DatasetResult,
   type Explanation,
@@ -64,11 +66,12 @@ const pick = new Set([
   ...screened.filter((r) => r.screening!.decision === 'unclear').map((r) => r.gse),
   ...screened.filter((r) => goldSet.has(r.gse) && r.screening!.decision !== 'include').map((r) => r.gse),
 ]);
+const judge = { judge: new DecisionsJudge({ apiKey: key, model: DEFAULT_DECISION_MODEL }), id: `decisions:${DEFAULT_DECISION_MODEL}` };
 console.log(`Explaining ${pick.size} datasets with ${DEFAULT_CHAT_MODEL}…`);
 const explained = await mapPool(
   results.filter((r) => pick.has(r.gse)),
   4,
-  (r) => explainResult(r, task.protocol, ep, DEFAULT_CHAT_MODEL, { cache }).catch((err) => (console.log(`  ! ${r.gse}: ${err.message}`), r)),
+  (r) => explainResult(r, task.protocol, ep, DEFAULT_CHAT_MODEL, { cache, judge }).catch((err) => (console.log(`  ! ${r.gse}: ${err.message}`), r)),
 );
 const explanations: Record<string, Explanation> = {};
 for (const r of explained) if (r.explanation) explanations[r.gse] = r.explanation;
@@ -91,7 +94,7 @@ const recordedAt = manifest.createdAt.slice(0, 10);
 const demo: DemoRecording = {
   title: 'Hypoxia vs normoxia, bulk RNA-seq, human cells',
   recordedAt,
-  note: `a real run recorded on ${recordedAt}. ${screened.length} GEO series screened with against the inclusion criteria of a published meta-analysis (Puente-Santamaria et al. 2022).`,
+  note: `a real run recorded on ${recordedAt}. ${screened.length} GEO series screened with ${task.scorer.model.split('/')[1]} against the inclusion criteria of a published meta-analysis (Puente-Santamaria et al. 2022).`,
   protocol: task.protocol,
   retmax: task.input.retmax,
   manifest,

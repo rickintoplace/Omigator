@@ -6,13 +6,14 @@
 
 import { aggregate, DEFAULT_THRESHOLDS, type Thresholds } from './decide';
 import { buildDossier, DEFAULT_CAPS, type DossierCaps } from './evidence';
-import { explain } from './explain';
+import type { EntailmentJudge } from 'veriquote';
+import { EXPLAIN_SYSTEM, explain, judgeSupport, relocateQuotes } from './explain';
 import { fetchSeries } from './geo';
 import { type Fetch, isAbort, mapPool, sha256 } from './http';
 import type { Endpoint } from './llm';
 import { applyFilters, buildGdsTerm, type FilterReport, Ncbi } from './ncbi';
 import type { Scorer } from './scorers';
-import type { Candidate, DatasetResult, Paper, Protocol, Series } from './types';
+import type { Candidate, DatasetResult, Explanation, Paper, Protocol, Series, SupportCheck } from './types';
 
 export interface Cache {
   get<T>(key: string): Promise<T | undefined>;
@@ -68,7 +69,7 @@ export interface RunOutput {
 }
 
 export const SERIES_CACHE = 'series:v2:';
-const PAPERS_PER_DATASET = 2;
+export const PAPERS_PER_DATASET = 2;
 
 export function normalizeGseList(text: string): string[] {
   return [...new Set((text.match(/GSE\d+/gi) ?? []).map((g) => g.toUpperCase()))];
@@ -145,7 +146,7 @@ export async function run(opts: RunOptions): Promise<RunOutput> {
         const key = `score:${scorer.id}:${await sha256(criteriaKey + result.dossier.text)}`;
         let scored = await cache.get<{ p: Record<string, number>; model: string; cost: number }>(key);
         if (!scored) {
-          scored = await scorer.score(result.dossier.text, protocol.criteria, signal);
+          scored = await scorer.score(result.dossier.text, protocol.criteria, signal, result.dossier);
           await cache.set(key, scored);
         }
         result.screening = { ...scored, ...aggregate(protocol.criteria, scored.p, thresholds) };
@@ -200,7 +201,7 @@ export async function rescreen(
     if (series) await cache.set(SERIES_CACHE + result.gse, series);
     dossier = buildDossier(result.candidate, series, dossier?.papers ?? [], series ? [] : ['Sample metadata unavailable.']);
   }
-  const scored = await scorer.score(dossier.text, protocol.criteria, opts.signal);
+  const scored = await scorer.score(dossier.text, protocol.criteria, opts.signal, dossier);
   return {
     ...result,
     dossier,
@@ -214,15 +215,31 @@ export async function explainResult(
   protocol: Protocol,
   ep: Endpoint,
   model: string,
-  opts: { signal?: AbortSignal; cache?: Cache } = {},
+  opts: { signal?: AbortSignal; cache?: Cache; judge?: { judge: EntailmentJudge; id: string } } = {},
 ): Promise<DatasetResult> {
-  if (!result.dossier) throw new Error('No dossier to explain.');
+  const dossier = result.dossier;
+  if (!dossier) throw new Error('No dossier to explain.');
   const cache = opts.cache ?? noCache;
-  const key = `explain:${model}:${await sha256(JSON.stringify(protocol.criteria) + result.dossier.text)}`;
-  let explanation = await cache.get<DatasetResult['explanation']>(key);
-  if (!explanation) {
-    explanation = await explain(result.dossier.text, protocol.criteria, result.screening?.p, ep, model, opts.signal);
-    await cache.set(key, explanation);
+  // The model's answer is cached; the checks are not, so they always follow the current rules.
+  const key = `explain:${model}:${await sha256(EXPLAIN_SYSTEM + JSON.stringify(protocol.criteria) + dossier.text)}`;
+  let answer = await cache.get<Explanation>(key);
+  if (!answer) {
+    answer = await explain(dossier, protocol.criteria, result.screening?.p, ep, model, opts.signal);
+    await cache.set(key, answer);
+  }
+  let explanation = relocateQuotes(answer, dossier);
+  if (opts.judge) {
+    const supportKey = `support:${opts.judge.id}:${await sha256(JSON.stringify(explanation.criteria) + dossier.text)}`;
+    let support = await cache.get<Record<string, SupportCheck>>(supportKey);
+    if (!support) {
+      support = await judgeSupport(explanation, dossier, protocol.criteria, opts.judge, opts.signal);
+      // A failed judge call is shown as such, and retried next time rather than cached.
+      if (!Object.values(support).some((s) => s.class === 'error')) await cache.set(supportKey, support);
+    }
+    explanation = {
+      ...explanation,
+      criteria: Object.fromEntries(Object.entries(explanation.criteria).map(([id, ex]) => [id, { ...ex, support: support[id] }])),
+    };
   }
   return { ...result, explanation };
 }

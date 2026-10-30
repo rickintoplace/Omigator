@@ -26,13 +26,17 @@ export function SettingsDialog({
   onSettings,
   onKeys,
   onClose,
+  onWithdrawFreeTier,
 }: {
   settings: Settings;
   keys: Keys;
   onSettings: (s: Settings) => void;
   onKeys: (k: Keys) => void;
   onClose: () => void;
+  /** Set while the visitor has agreed to the free tier on this device. */
+  onWithdrawFreeTier?: () => void;
 }) {
+  const [withdrawn, setWithdrawn] = useState(false);
   const set = (patch: Partial<Settings>) => onSettings({ ...settings, ...patch });
   const setKey = (patch: Partial<Keys>) => onKeys({ ...keys, ...patch });
   const [available, setAvailable] = useState<Set<string> | null>(null);
@@ -50,6 +54,20 @@ export function SettingsDialog({
 
   return (
     <Dialog title="Settings" onClose={onClose} wide>
+      {(onWithdrawFreeTier || withdrawn) && (
+        <Group title="Free tier">
+          {withdrawn ? (
+            <Hint>Withdrawn. The device signature is no longer sent; you will be asked again before the free tier is used.</Hint>
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+              <span>You agreed to the free tier on this device; a hash of a coarse device signature counts your daily use.</span>
+              <button className="brutal-button px-3 py-1 text-sm" onClick={() => (onWithdrawFreeTier!(), setWithdrawn(true))}>
+                Withdraw
+              </button>
+            </div>
+          )}
+        </Group>
+      )}
       <Group title="API key">
         <Field
           label="OpenRouter key"

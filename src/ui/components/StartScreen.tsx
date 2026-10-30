@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { PRESETS, type Protocol } from '../../core';
 import type { SavedRunMeta } from '../idbCache';
 import omigatorLogoPng from '../../assets/omigator-logo.png';
-import { KeyPrompt } from './KeyPrompt';
+import { type FreeOffer, KeyPrompt } from './KeyPrompt';
 import { ParticleLogo } from './ParticleLogo';
 
 export interface StartScreenProps {
@@ -13,6 +13,8 @@ export interface StartScreenProps {
   drafting: boolean;
   draftError?: string;
   hasKey: boolean;
+  /** The free tier, when the visitor has neither a key nor agreed to it yet. */
+  free?: FreeOffer;
   rememberKeys: boolean;
   onKey: (key: string, remember: boolean) => void;
   onPreset: (p: Protocol) => void;
@@ -82,6 +84,7 @@ export function StartScreen(p: StartScreenProps) {
               setAskKey(false);
             }}
             onOpenSettings={p.onOpenSettings}
+            free={p.free && { ...p.free, onUse: () => (p.free!.onUse(), setAskKey(false)) }}
           />
         )}
 

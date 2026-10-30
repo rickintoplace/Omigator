@@ -12,6 +12,7 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
+import { DecisionsJudge } from 'veriquote';
 import {
   bootstrap,
   DEFAULT_CAPS,
@@ -19,6 +20,7 @@ import {
   confusion,
   customEndpoint,
   DEFAULT_CHAT_MODEL,
+  DEFAULT_DECISION_MODEL,
   DecisionScorer,
   type DatasetResult,
   type Endpoint,
@@ -136,8 +138,9 @@ const k = Number(args.explain);
 if (k > 0) {
   console.log(`[explain] top ${k} with ${args['explain-model']}`);
   const top = results.filter((r) => r.screening).slice(0, k);
+  const judge = { judge: new DecisionsJudge({ apiKey: orKey, model: DEFAULT_DECISION_MODEL }), id: `decisions:${DEFAULT_DECISION_MODEL}` };
   const explained = await mapPool(top, 4, (r) =>
-    explainResult(r, task.protocol, endpointFor('openrouter'), args['explain-model']!, { cache }).catch((err) => {
+    explainResult(r, task.protocol, endpointFor('openrouter'), args['explain-model']!, { cache, judge }).catch((err) => {
       console.log(`  ! explain ${r.gse}: ${(err as Error).message}`);
       return r;
     }),
