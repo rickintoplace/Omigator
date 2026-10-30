@@ -259,8 +259,18 @@ export default function App() {
   const free = useFreeTier();
   const [freeConsent, setFreeConsent] = useState(loadFreeConsent);
   // Without an own key or endpoint, the free tier is offered; once agreed to, it screens, drafts and explains.
-  // Model choices do not matter here: the free tier's server uses fixed models.
-  const noOwnSetup = needsOpenRouterKey && settings.chatEndpoint === 'openrouter';
+  // What keeps the own setup from screening, if anything (e.g. an own endpoint without a model name).
+  const setupProblem = (() => {
+    try {
+      makeScorer(keys, settings);
+      return undefined;
+    } catch (err) {
+      return (err as Error).message;
+    }
+  })();
+  // No key and no working own setup: the free tier is offered. Model choices do not matter there,
+  // as its server uses fixed models.
+  const noOwnSetup = !keys.openrouter.trim() && Boolean(setupProblem);
   const useFree = free.enabled && noOwnSetup && freeConsent;
   const offerFree = free.enabled && noOwnSetup && !freeConsent;
   // Known once the server has answered a screening request today; until then unknown.
@@ -450,7 +460,7 @@ export default function App() {
         <Plus className="w-4 h-4" /> Start your own request
       </button>
     </div>
-  ) : !scorerReady && needsOpenRouterKey ? (
+  ) : !scorerReady && (needsOpenRouterKey || offerFree) ? (
     <KeyPrompt
       reason="Screening uses a decision model."
       remember={settings.rememberKeys}
@@ -472,7 +482,7 @@ export default function App() {
               : `Free, no key needed: up to ${free.limits?.datasets.toLocaleString() ?? '1,000'} datasets per day.`
             : scorerReady
               ? `About ${usd(toScreen * COST_PER_DATASET)} with ${settings.scoring === 'openrouter-decisions' ? settings.decisionModel.split('/')[1] : 'your model'}.`
-              : 'Finish the setup in Settings.')}
+              : `${setupProblem ?? 'Finish the setup in Settings.'}`)}
       </p>
     </div>
   );

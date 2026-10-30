@@ -106,15 +106,16 @@ export const PRESETS: Preset[] = [
     },
   },
   {
-    name: 'Tumor vs matched normal tissue',
+    name: 'Liver cancer vs adjacent normal tissue',
     protocol: {
-      intent: 'Bulk RNA-seq of human primary tumors with matched adjacent normal tissue from the same patients.',
-      query: '(tumor OR tumour OR carcinoma OR cancer) AND (normal OR adjacent OR "non-tumor" OR paired OR matched)',
+      intent: 'Bulk RNA-seq of human hepatocellular carcinoma with matched adjacent non-tumor liver tissue from the same patients.',
+      query:
+        '("hepatocellular carcinoma" OR HCC) AND (adjacent OR "non-tumor" OR "non-tumorous" OR paired OR matched) AND "expression profiling by high throughput sequencing"[DataSet Type]',
       filters: { organism: 'Homo sapiens', assay: 'high throughput sequencing', minSamples: 10 },
       criteria: [
         { id: 'bulk_rnaseq', kind: 'require', text: 'The dataset contains bulk RNA-seq expression profiling.' },
-        { id: 'primary_tumor', kind: 'require', text: 'The samples include human primary tumor tissue from patients.' },
-        { id: 'matched_normal', kind: 'require', text: 'Normal or adjacent non-tumor tissue from the same patients is included as a control.' },
+        { id: 'primary_tumor', kind: 'require', text: 'The samples include hepatocellular carcinoma tissue from patients.' },
+        { id: 'matched_normal', kind: 'require', text: 'Adjacent non-tumor liver tissue from the same patients is included as a control.' },
         { id: 'cell_lines_only', kind: 'exclude', text: 'All samples are cell lines, organoids or xenografts rather than patient tissue.' },
         { id: 'large_cohort', kind: 'prefer', text: 'The dataset includes at least 20 patients.' },
       ],
