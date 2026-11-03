@@ -149,7 +149,7 @@ export function StartScreen(p: StartScreenProps) {
           <a className="link" href="/legal.html#imprint">Imprint</a>
           <span>
             Made by{' '}
-            <a className="link" href="https://rickinto.place" target="_blank" rel="noreferrer">
+            <a className="link" href="https://rickinto.place/projects/omigator" target="_blank" rel="noopener">
               rickinto.place
             </a>
           </span>
